@@ -12,6 +12,7 @@ test('answers accept equivalent fractions, decimals and Thai numerals without ex
 test('fraction skills guarantee the selected operation and denominators, including Grade 5 defaults',()=>{
  for(const skill of Object.keys(FRACTION_SKILLS))for(const grade of [4,5])for(const level of [1,2,3])for(let seed=0;seed<250;seed++){
   const p=makeProblem(grade,'fraction',level,seed,skill),n=p.title.match(/\d+/g).map(Number);
+  if(p.curriculumSkill)continue; // Extended chapter skills are checked in curriculum.test.mjs.
   assert.ok(Math.abs(parseNumber(p.answer)-calculate(p.title))<1e-9,JSON.stringify(p));assert.ok(parseNumber(p.answer)>=0);
   if(skill.endsWith('Unlike'))assert.notEqual(n[1],n[3]);if(skill.endsWith('Same'))assert.equal(n[1],n[3]);
   if(skill.startsWith('subtract'))assert.match(p.title,/−/);if(skill.startsWith('add'))assert.match(p.title,/\+/);if(skill==='multiply')assert.match(p.title,/×/);if(skill==='divide')assert.match(p.title,/÷/);
@@ -30,9 +31,10 @@ function calculate(text){
  function sum(){let n=product();while(['+','-'].includes(tokens[i])){const op=tokens[i++],r=product();n=op==='+'?n+r:n-r;}return n;}
  const result=sum();assert.equal(i,tokens.length);return result;
 }
-test('displayed problems have independently checked answers across all 12 topics, grades and levels',()=>{
+test('legacy displayed problems have independently checked answers across topics, grades and levels',()=>{
  for(const grade of [4,5])for(const topic of Object.keys(TOPICS))for(const level of [1,2,3])for(let seed=0;seed<300;seed++){
   const p=makeProblem(grade,topic,level,seed);assert.equal(p.id,makeProblem(grade,topic,level,seed).id);
+  if(p.curriculumSkill)continue;
   const nums=p.title.replaceAll(',','').match(/\d+(?:\.\d+)?/g).map(Number);let expected;
   if(['addition','subtraction','multiply','divide','fraction','decimal','mixed'].includes(topic))expected=calculate(p.title);
   else if(topic==='word')expected=level===1?nums[0]*nums[1]:level===2?nums[0]-nums[1]*nums[2]:(nums[0]*nums[1]+nums[2])/nums[3];

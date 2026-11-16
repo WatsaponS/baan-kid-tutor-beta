@@ -21,7 +21,7 @@ try{
  await page.locator('#hintBtn').click();assert.match(await page.locator('#result').textContent(),/☼/);
  await page.locator('[data-topic="fraction"]').click();await page.locator('#fractionSkill').selectOption('addSame');let fractions=(await page.locator('#question').textContent()).match(/\d+/g).map(Number);await page.locator('#answer').fill(`${2*(fractions[0]+fractions[2])}/${2*fractions[1]}`);await page.locator('#checkBtn').click();assert.match(await page.locator('#result').textContent(),/คำตอบถูกแล้ว/);
  await page.locator('[data-grade="5"]').click();await page.locator('#level').selectOption('3');await page.locator('[data-topic="decimal"]').click();
- assert.match(await page.locator('#question').textContent(),/\d+\.\d{2}/);
+ await page.locator('#practiceSkill').selectOption('add');assert.match(await page.locator('#question').textContent(),/\d+\.\d{3}/);
  await page.locator('#settingsBtn').click();assert.equal(await page.locator('#settings').isVisible(),true);assert.match(await page.locator('#connectionStatus').textContent(),/ยังไม่มี API key/);await page.locator('#saveSettings').click();
  await page.locator('[data-topic="multiply"]').click();await page.locator('#level').selectOption('1');await page.screenshot({path:'test-results/desktop.png',fullPage:true});
  for(const [name,w,h] of [['tablet',1024,1366],['mobile',390,844]]){await page.setViewportSize({width:w,height:h});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name+' overflow');await page.screenshot({path:`test-results/${name}.png`,fullPage:true});}

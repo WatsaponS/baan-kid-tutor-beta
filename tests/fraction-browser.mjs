@@ -5,7 +5,7 @@ try{
  const page=await browser.newPage({viewport:{width:1024,height:1366}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('http://127.0.0.1:3000');await page.locator('[data-grade="5"]').click();await page.locator('#lessonSelect').selectOption('fraction');
  assert.equal(await page.locator('#fractionSkill').isVisible(),true);
- for(const skill of ['auto','addUnlike','subtractUnlike','addSame','subtractSame','multiply','divide','multiAdd','multiSubtract','multiMixed','mixedAdd','mixedSubtract','mixedMultiply','mixedDivide']){
+ for(const skill of ['addUnlike','subtractUnlike','addSame','subtractSame','multiply','divide','multiAdd','multiSubtract','multiMixed','mixedAdd','mixedSubtract','mixedMultiply','mixedDivide']){
   await page.locator('#fractionSkill').selectOption(skill);
   for(let i=0;i<4;i++){
    const title=await page.locator('#question').getAttribute('aria-label')||await page.locator('#question').textContent(),normalized=title.replace(/(\d+)\s+(\d+)\/(\d+)/g,(_,w,n,d)=>`${Number(w)*Number(d)+Number(n)}/${d}`),n=normalized.match(/\d+/g).map(Number);let answer;

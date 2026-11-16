@@ -79,3 +79,15 @@ test('new practice topics are supported by the authenticated AI review contract'
   const r=await rawWorker.fetch(request('/api/review',{problem:p,adultConsent:true,image:'data:image/png;base64,AA=='}),env,ctx);assert.equal(r.status,200,topic);assert.equal((await r.json()).verdict,'correct',topic);
  }}finally{globalThis.fetch=realFetch;}
 });
+test('curriculum specifications are server-validated and chart facts are trusted; OCR cannot grade construction',async()=>{
+ const realFetch=globalThis.fetch;const ctx={access:{getIdentity:async()=>({email:'curriculum@example.test'})}};let sent;
+ try{
+  const p=makeProblem(5,'data',2,32,'auto','buildBar');
+  globalThis.fetch=async(url,opts)=>{sent=JSON.parse(opts.body);return Response.json({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify({transcription:'test',final_answer:'100',uncertain:false,feedback:'ตรวจแกนตั้ง'})}]}]});};
+  const res=await rawWorker.fetch(request('/api/review',{problem:{...p,diagram:{series:'FORGED'},answer:'FORGED'},adultConsent:true,image:'data:image/png;base64,AA=='}),env,ctx);
+  assert.equal(res.status,200);const data=await res.json();assert.equal(data.final_answer,null);assert.equal(data.verdict,'unclear');
+  const prompt=sent.input[0].content[0].text;assert.ok(!prompt.includes('FORGED'));assert.ok(prompt.includes(JSON.stringify(p.diagram)));
+  const bad=await rawWorker.fetch(request('/api/review',{problem:{...p,practiceSkill:'missing-skill'},adultConsent:true,image:'data:image/png;base64,AA=='}),env,ctx);assert.equal(bad.status,400);
+  for(const topic of ['proportion','percent','parallel','volume']){const q=makeProblem(5,topic,1,22);const r=await rawWorker.fetch(request('/api/review',{problem:q,adultConsent:true,image:'data:image/png;base64,AA=='}),env,ctx);assert.equal(r.status,200,topic);}
+ }finally{globalThis.fetch=realFetch;}
+});

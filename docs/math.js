@@ -1,10 +1,14 @@
-export const TOPICS = { addition:'การบวก', subtraction:'การลบ', multiply:'การคูณ', divide:'การหาร', mixed:'คำนวณระคน', fraction:'เศษส่วน', decimal:'ทศนิยม', measurement:'การวัดและหน่วย', geometry:'พื้นที่และรูปทรง', time:'เวลา', data:'อ่านข้อมูล', word:'โจทย์ปัญหา' };
+export const TOPICS = { fraction:'เศษส่วนและจำนวนคละ',decimal:'ทศนิยมและการวัด',data:'การนำเสนอข้อมูล',proportion:'บัญญัติไตรยางศ์',percent:'ร้อยละ',parallel:'เส้นขนาน',geometry:'รูปสี่เหลี่ยม',volume:'ปริมาตรและความจุ',addition:'การบวก',subtraction:'การลบ',multiply:'การคูณ',divide:'การหาร',mixed:'คำนวณระคน',measurement:'การวัดและหน่วย',time:'เวลา',word:'โจทย์ปัญหาทบทวน'};
 export const FRACTION_SKILLS={auto:'คละตามระดับชั้น',mixedAdd:'บวกจำนวนคละ',mixedSubtract:'ลบจำนวนคละ',mixedMultiply:'คูณจำนวนคละ',mixedDivide:'หารจำนวนคละ',addUnlike:'บวก · ส่วนไม่เท่ากัน',subtractUnlike:'ลบ · ส่วนไม่เท่ากัน',multiAdd:'บวกหลายขั้น · 4–5 จำนวน',multiSubtract:'ลบหลายขั้น · 4–5 จำนวน',multiMixed:'บวก–ลบสลับ · 4–5 จำนวน',addSame:'บวก · ส่วนเท่ากัน',subtractSame:'ลบ · ส่วนเท่ากัน',multiply:'คูณเศษส่วน',divide:'หารเศษส่วน'};
 export function gcd(a,b){while(b){[a,b]=[b,a%b];}return Math.abs(a);}
 export function fraction(n,d){const g=gcd(n,d);return d/g===1?String(n/g):`${n/g}/${d/g}`;}
-export function makeProblem(grade=4,topic='multiply',level=1,seed=1,fractionSkill='auto'){
+Object.assign(FRACTION_SKILLS,P5_SKILLS.fraction);
+export function makeProblem(grade=4,topic='multiply',level=1,seed=1,fractionSkill='auto',practiceSkill='auto'){
   grade=Number(grade)===5?5:4; topic=TOPICS[topic]?topic:'multiply'; level=Math.max(1,Math.min(3,Number(level)||1));
   fractionSkill=Object.hasOwn(FRACTION_SKILLS,fractionSkill)?fractionSkill:'auto';
+  if((grade===5||['proportion','percent','parallel','volume'].includes(topic)||(topic==='fraction'&&Object.hasOwn(P5_SKILLS.fraction,fractionSkill)))&&P5_SKILLS[topic]){
+    const extension=makeP5Problem(topic,level,Number(seed)>>>0,topic==='fraction'?fractionSkill:practiceSkill);if(extension)return {...extension,grade,id:extension.id.replace(/^5-/,grade+'-'),fractionSkill,practiceSkill:topic==='fraction'?'auto':practiceSkill};
+  }
   let state=Number(seed)>>>0; const rand=(lo,hi)=>{state=(Math.imul(1664525,state)+1013904223)>>>0;return lo+state%(hi-lo+1);};
   let a,b,answer,title,hints,solution,visual=null,unit='',mixedTerms=null,mixedOperator=null;
   if(topic==='addition'||topic==='subtraction'){
@@ -95,4 +99,5 @@ export function parseNumber(value){
   if(f){const n=Number(f[1]),d=Number(f[2]);return d&&Number.isFinite(n/d)?n/d:null;}
   return /^-?\d+(?:\.\d+)?$/.test(s)&&Number.isFinite(Number(s))?Number(s):null;
 }
-export function gradeAnswer(problem,input){const a=parseNumber(input),b=parseNumber(problem.answer);return a===null||b===null?'unclear':Math.abs(a-b)<1e-9?'correct':'incorrect';}
+export function gradeAnswer(problem,input){const other=gradeCurriculum(problem,input);if(other!==null)return other;const a=parseNumber(input),b=parseNumber(problem.answer);return a===null||b===null?'unclear':Math.abs(a-b)<1e-9?'correct':'incorrect';}
+import {P5_SKILLS,makeP5Problem,gradeCurriculum} from './curriculum.js';

@@ -1,5 +1,12 @@
 # Beta validation
 
+## Curriculum 1.1 (16 November 2026)
+
+- 17 Node tests pass. The curriculum suite independently recomputes 33,480 generated cases from displayed statements and diagram/table givens: 62 skills × 3 levels × 180 seeds. Legacy arithmetic and fraction suites remain in place. Eight chapters map to 19 Grade 5 indicator codes; mapping is a coverage plan, not educational certification.
+- Chromium exercises every new skill through answer entry, grading and navigation. Checks include assisted graph creation, alternative valid touch constructions, manual drawings excluded from scores, the eight-chapter learning map, and 1024/768/390px layouts. Diagrams for angles, broken bar charts and rhombus area were visually inspected.
+- Mock API checks reject unknown skills and forged client facts, reconstruct trusted chart data, and prevent OCR final-answer scoring of construction tasks. Paid OpenAI calls and physical tablet/stylus performance were not tested.
+- Worker and Pages builds pass. Wrangler dry-run packages the Worker successfully. A successful local dry-run does not verify the remote Cloudflare deployment.
+
 - Node tests: 10 passing, including 4,500 generated problems with answers checked independently from their displayed statements, GitHub Pages artifact checks, Cloudflare Access identity context, spoofed identity-header rejection, and loopback-only local-development bypass.
 - Browser: Chromium desktop 1440px, tablet 1024px, mobile 390px. No horizontal document overflow or browser exceptions in the exercised flows.
 - Browser flows: wrong/correct typed answers; duplicate-submission history; equivalent fractions; grade and topic changes; decimal precision; drawing and undo; demo handwriting boundary; settings; stale response cancellation; OCR answer confirmation before recording a grade.

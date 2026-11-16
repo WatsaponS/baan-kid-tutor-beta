@@ -8,7 +8,7 @@ test('Pages artifact uses project-relative assets and explicitly selects offline
  assert.ok(html.includes('href="./style.css"'));
  assert.ok(!html.includes('href="/"'));
  const files=(await readdir('docs')).sort();
- assert.deepEqual(files,['.nojekyll','app.js','index.html','math.js','style.css']);
+ assert.deepEqual(files,['.nojekyll','app.js','curriculum-ui.js','curriculum.js','index.html','math.js','style.css']);
  const js=await readFile('docs/app.js','utf8');
  assert.ok(js.includes("if(staticDemo){config={mode:'demo',hasKey:false}"));
 });
