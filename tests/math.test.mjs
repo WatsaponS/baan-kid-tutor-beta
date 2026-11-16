@@ -15,6 +15,7 @@ test('fraction skills guarantee the selected operation and denominators, includi
   if(skill.endsWith('Unlike'))assert.notEqual(n[1],n[3]);if(skill.endsWith('Same'))assert.equal(n[1],n[3]);
   if(skill.startsWith('subtract'))assert.match(p.title,/−/);if(skill.startsWith('add'))assert.match(p.title,/\+/);if(skill==='multiply')assert.match(p.title,/×/);if(skill==='divide')assert.match(p.title,/÷/);
   if(skill==='auto'&&grade===5&&level<3){assert.notEqual(n[1],n[3]);assert.match(p.title,/[+−]/);}
+  if(['multiAdd','multiSubtract','multiMixed'].includes(skill)){assert.ok(n.length/2>=4&&n.length/2<=5);const ops=p.title.match(/[+−]/g);assert.equal(ops.length,n.length/2-1);if(skill==='multiAdd')assert.ok(ops.every(o=>o==='+'));if(skill==='multiSubtract')assert.ok(ops.every(o=>o==='−'));if(skill==='multiMixed'){assert.ok(ops.includes('+'));assert.ok(ops.includes('−'));}let balance=n[0]/n[1];for(let i=1;i<n.length/2;i++){balance+=(ops[i-1]==='+'?1:-1)*n[2*i]/n[2*i+1];assert.ok(balance>=-1e-9);}assert.ok(new Set(n.filter((_,i)=>i%2===1)).size>1);}
   assert.equal(p.id,makeProblem(grade,'fraction',level,seed,skill).id);
  }
  const a=makeProblem(5,'fraction',1,1,'addUnlike'),b=makeProblem(5,'fraction',1,1,'subtractUnlike');assert.notEqual(a.id,b.id);

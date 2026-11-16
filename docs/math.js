@@ -1,5 +1,5 @@
 export const TOPICS = { addition:'การบวก', subtraction:'การลบ', multiply:'การคูณ', divide:'การหาร', mixed:'คำนวณระคน', fraction:'เศษส่วน', decimal:'ทศนิยม', measurement:'การวัดและหน่วย', geometry:'พื้นที่และรูปทรง', time:'เวลา', data:'อ่านข้อมูล', word:'โจทย์ปัญหา' };
-export const FRACTION_SKILLS={auto:'คละตามระดับชั้น',addUnlike:'บวก · ส่วนไม่เท่ากัน',subtractUnlike:'ลบ · ส่วนไม่เท่ากัน',addSame:'บวก · ส่วนเท่ากัน',subtractSame:'ลบ · ส่วนเท่ากัน',multiply:'คูณเศษส่วน',divide:'หารเศษส่วน'};
+export const FRACTION_SKILLS={auto:'คละตามระดับชั้น',addUnlike:'บวก · ส่วนไม่เท่ากัน',subtractUnlike:'ลบ · ส่วนไม่เท่ากัน',multiAdd:'บวกหลายขั้น · 4–5 จำนวน',multiSubtract:'ลบหลายขั้น · 4–5 จำนวน',multiMixed:'บวก–ลบสลับ · 4–5 จำนวน',addSame:'บวก · ส่วนเท่ากัน',subtractSame:'ลบ · ส่วนเท่ากัน',multiply:'คูณเศษส่วน',divide:'หารเศษส่วน'};
 export function gcd(a,b){while(b){[a,b]=[b,a%b];}return Math.abs(a);}
 export function fraction(n,d){const g=gcd(n,d);return d/g===1?String(n/g):`${n/g}/${d/g}`;}
 export function makeProblem(grade=4,topic='multiply',level=1,seed=1,fractionSkill='auto'){
@@ -11,6 +11,7 @@ export function makeProblem(grade=4,topic='multiply',level=1,seed=1,fractionSkil
     const max=level===1?999:level===2?99999:grade===5?9999999:999999;a=rand(101,max);b=rand(11,max);
     if(topic==='subtraction'&&a<b)[a,b]=[b,a];const add=topic==='addition';answer=String(add?a+b:a-b);title=`${a.toLocaleString('en-US')} ${add?'+':'−'} ${b.toLocaleString('en-US')} = ?`;
     hints=[`จัดตัวเลขให้หลักหน่วย หลักสิบ และหลักร้อยตรงกัน แล้ว${add?'บวก':'ลบ'}จากขวาไปซ้าย`,add?'เมื่อรวมในหลักหนึ่งได้ตั้งแต่สิบ ให้ทดไปหลักถัดไป':'ถ้าตัวตั้งในหลักนั้นน้อยกว่า ให้กระจายหนึ่งหน่วยจากหลักถัดไป'];solution=add?`${a} + ${b} = ${answer} ตรวจด้วย ${answer} − ${b} = ${a}`:`${a} − ${b} = ${answer} ตรวจด้วย ${answer} + ${b} = ${a}`;
+    if(level>1){const count=level===2?3:4+(Number(seed)>>>0)%2,terms=Array.from({length:count},()=>rand(11,level===2?999:9999));if(!add)terms[0]=terms.slice(1).reduce((s,x)=>s+x,rand(1,999));answer=String(terms.slice(1).reduce((s,x)=>add?s+x:s-x,terms[0]));title=terms.map(x=>x.toLocaleString('en-US')).join(add?' + ':' − ')+' = ?';hints=[`มี ${count} จำนวน คำนวณ${add?'ผลบวก':'ผลลบ'}ทีละขั้นจากซ้ายไปขวา`,add?'จัดหลักให้ตรงกัน หรือจับคู่จำนวนที่รวมกันง่ายก่อน':'ห้ามรวมผลลบของสองจำนวนท้ายแล้วนำไปลบแทน ให้ลบจากยอดที่เหลือทีละครั้ง'];solution=terms.join(add?' + ':' − ')+' = '+answer;}
   }else if(topic==='multiply'){
     a=rand(level===1?12:102,level===1?89:499);b=rand(2,level===1?9:grade===5&&level===3?39:19);answer=String(a*b);title=`${a} × ${b} = ?`;
     hints=[`เริ่มจากหลักหน่วย คูณ ${b} กับเลขหลักหน่วยของ ${a} ก่อนนะ`,`ลองแยก ${a} เป็น ${a-a%10} + ${a%10} แล้วคูณทีละส่วน`];solution=`ใช้สมบัติการแจกแจง: (${a-a%10} × ${b}) + (${a%10} × ${b}) = ${(a-a%10)*b} + ${(a%10)*b} = ${answer}`;
@@ -18,13 +19,26 @@ export function makeProblem(grade=4,topic='multiply',level=1,seed=1,fractionSkil
     b=rand(2,level===1?9:15);const q=rand(grade===4?12:21,level===1?49:129);a=b*q;answer=String(q);title=`${a} ÷ ${b} = ?`;
     hints=[`เรากำลังแบ่ง ${a} ออกเป็นกลุ่ม กลุ่มละ ${b} ลองคิดว่ามีกี่กลุ่ม`,`ใช้การคูณย้อนกลับ: ${b} คูณจำนวนใดแล้วได้ ${a}?`];solution=`${a} ÷ ${b} = ${q} ตรวจย้อนกลับ: ${q} × ${b} = ${a}`;
   }else if(topic==='fraction'){
-    const choices=grade===5?(level===3?['addUnlike','subtractUnlike','multiply','divide']:['addUnlike','subtractUnlike']):level===1?['addSame','subtractSame']:['addUnlike','subtractUnlike'];
+    const choices=grade===5?(level===3?['addUnlike','subtractUnlike','multiply','divide','multiAdd','multiSubtract','multiMixed']:['addUnlike','subtractUnlike']):level===1?['addSame','subtractSame']:['addUnlike','subtractUnlike'];
     const skill=fractionSkill==='auto'?choices[(Number(seed)>>>0)%choices.length]:fractionSkill;
     const pairs=level===1?[[2,3],[3,4],[4,6],[3,5]]:level===2?[[4,9],[6,8],[5,12],[8,12]]:[[9,12],[8,15],[12,18],[15,20]];
     let [d,e]=pairs[rand(0,pairs.length-1)];if(skill.endsWith('Same'))d=e=rand(3,level===1?9:16);
     a=rand(1,d-1);b=rand(1,e-1);while(gcd(a,d)!==1)a=a%(d-1)+1;while(gcd(b,e)!==1)b=b%(e-1)+1;
     const subtract=skill.startsWith('subtract');if(subtract&&a*e<b*d){[a,b]=[b,a];[d,e]=[e,d];}
-    if(skill==='multiply'||skill==='divide'){
+    if(['multiAdd','multiSubtract','multiMixed'].includes(skill)){
+      const count=level===1?4:level===2?4+(Number(seed)>>>0)%2:5;
+      const pool=level===1?[2,3,4,6]:level===2?[3,4,6,8,12]:[4,6,8,9,12,18];
+      const terms=Array.from({length:count},(_,i)=>{const den=pool[((Number(seed)>>>0)+i)%pool.length];return {n:rand(1,den-1),d:den};});
+      const ops=Array.from({length:count-1},(_,i)=>skill==='multiAdd'?'+':skill==='multiSubtract'?'−':(i+(Number(seed)>>>0))%2===0?'+':'−');
+      const common=terms.reduce((l,t)=>l/gcd(l,t.d)*t.d,1);let running=terms[0].n*(common/terms[0].d),min=running;
+      for(let i=1;i<count;i++){running+=(ops[i-1]==='+'?1:-1)*terms[i].n*(common/terms[i].d);min=Math.min(min,running);}
+      if(min<0)terms[0].n+=Math.ceil(-min/common)*terms[0].d;
+      const converted=terms.map(t=>t.n*(common/t.d));let total=converted[0];const steps=[];
+      for(let i=1;i<count;i++){const before=total;total+=(ops[i-1]==='+'?1:-1)*converted[i];steps.push(`${before}/${common} ${ops[i-1]} ${converted[i]}/${common} = ${fraction(total,common)}`);}
+      answer=fraction(total,common);title=terms.map((t,i)=>(i?ops[i-1]+' ':'')+`${t.n}/${t.d}`).join(' ')+' = ?';
+      hints=[`มี ${count} จำนวน ทำตัวส่วนให้เท่ากัน แล้วบวกหรือลบจากซ้ายไปขวา ระวังเครื่องหมายของแต่ละจำนวน`,`ใช้ตัวส่วนร่วม ${common}: `+terms.map((t,i)=>`${t.n}/${t.d} = ${converted[i]}/${common}`).join(', ')];
+      solution=steps.join(' → ')+` ดังนั้นคำตอบคือ ${answer}`;
+    }else if(skill==='multiply'||skill==='divide'){
       const divide=skill==='divide';answer=divide?fraction(a*e,d*b):fraction(a*b,d*e);title=`(${a}/${d}) ${divide?'÷':'×'} (${b}/${e}) = ?`;
       hints=[divide?'หารด้วยเศษส่วน เท่ากับคูณด้วยส่วนกลับของตัวหาร':'คูณตัวเศษกับตัวเศษ และตัวส่วนกับตัวส่วน',divide?`ส่วนกลับของ ${b}/${e} คือ ${e}/${b} แล้วลองตัดทอนก่อนคูณ`:'ตัดทอนตัวประกอบร่วม แล้วตรวจว่าคำตอบเป็นเศษส่วนอย่างต่ำ'];solution=divide?`${a}/${d} × ${e}/${b} = ${a*e}/${d*b} = ${answer}`:`(${a} × ${b}) / (${d} × ${e}) = ${a*b}/${d*e} = ${answer}`;
     }else{
