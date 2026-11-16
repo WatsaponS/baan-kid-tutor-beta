@@ -1,7 +1,12 @@
 import {makeProblem,gradeAnswer,TOPICS} from './math.js';
 const $=id=>document.getElementById(id);
 const staticDemo=document.documentElement.dataset.host==='github-pages';
-const symbols={multiply:'×',divide:'÷',fraction:'½',decimal:'.0',word:'≋'};
+const symbols={addition:'+',subtraction:'−',multiply:'×',divide:'÷',mixed:'( )',fraction:'½',decimal:'.0',measurement:'↔',geometry:'▱',time:'◷',data:'▥',word:'≋'};
+const menu=document.querySelector('.lesson-menu');menu.querySelectorAll('[data-topic]').forEach(b=>b.remove());
+for(const [key,label]of Object.entries(TOPICS)){const button=document.createElement('button');button.className='topic';button.dataset.topic=key;button.title=label;button.setAttribute('aria-label',label);const icon=document.createElement('span');icon.textContent=symbols[key];button.append(icon,document.createTextNode(' '+label));menu.append(button);}
+const topicPicker=document.createElement('label');topicPicker.className='topic-picker';topicPicker.textContent='เรื่อง ';const lessonSelect=document.createElement('select');lessonSelect.id='lessonSelect';lessonSelect.setAttribute('aria-label','เลือกเรื่องที่อยากฝึก');for(const [key,label]of Object.entries(TOPICS))lessonSelect.append(new Option(label,key));topicPicker.append(lessonSelect);document.querySelector('.exercise-meta').prepend(topicPicker);
+document.querySelector('.beta').textContent='1.0';document.querySelector('.footer-right').textContent='MATH PRACTICE / 1.0';document.querySelector('.setting-notice').firstChild.textContent='ชุดฝึก 1.0 · AI สำหรับผู้ใหญ่ทดลอง';
+let paperPages=[[]],pageIndex=0;const recentTitles=new Set();
 let config={mode:'demo',hasKey:false},grade=4,topic='multiply',level=1,problem,number=0,hintIndex=0,solved=false,attempted=new Set(),revision=0,strokes=[],current=null,color='#344c40',tool='pen',penSeen=0,autoTimer,reviewAbort,reviewBusy=false,lastReview=0,aiChecks=0;
 let history=[];try{const h=JSON.parse(localStorage.getItem('baankid-history')||'[]');if(Array.isArray(h))history=h.filter(x=>x&&typeof x.title==='string'&&typeof x.correct==='boolean'&&Number.isFinite(x.at)).slice(-300);}catch{}
 let prefs={readAloud:false,adaptive:true,voiceQuality:'quality',microphoneMode:'tablet'};try{Object.assign(prefs,JSON.parse(localStorage.getItem('baankid-prefs')||'{}'));}catch{}
@@ -41,21 +46,39 @@ function changed(){revision++;clearTimeout(autoTimer);reviewAbort?.abort();stopR
 function invalidate(){revision++;clearTimeout(autoTimer);reviewAbort?.abort();stopReply();}
 function newProblem(){
   invalidate();if(prefs.adaptive&&solved&&level<3){const recent=history.filter(h=>h.topic===topic&&h.grade===grade).slice(-3);if(recent.length===3&&recent.every(h=>h.correct&&!h.helped)&&new Set(recent.map(h=>h.id)).size===3){level++;$('level').value=String(level);toast('ทำได้ด้วยตัวเอง 3 ข้อติดแล้ว ลองระดับถัดไปกัน!');}}
-  problem=makeProblem(grade,topic,level,crypto.getRandomValues(new Uint32Array(1))[0]);number++;hintIndex=0;solved=false;attempted.clear();strokes=[];current=null;draw();$('answer').value='';$('result').className='result hidden';$('transcription').classList.add('hidden');$('question').textContent=problem.title;$('question').classList.toggle('word-question',topic==='word');$('questionNumber').textContent=`ข้อที่ ${String(number).padStart(2,'0')}`;$('topicBadge').textContent=symbols[topic]+' '+TOPICS[topic];$('answerUnit').textContent=problem.unit;$('answer').placeholder=topic==='fraction'?'เช่น 3/4':'เช่น 144';$('answer').inputMode=topic==='fraction'?'text':'decimal';$('boardState').textContent='พร้อมให้ลองคิด';
+  for(let tries=0;tries<20;tries++){problem=makeProblem(grade,topic,level,crypto.getRandomValues(new Uint32Array(1))[0]);if(!recentTitles.has(problem.title))break;}recentTitles.add(problem.title);if(recentTitles.size>200)recentTitles.delete(recentTitles.values().next().value);
+  number++;hintIndex=0;solved=false;attempted.clear();paperPages=[[]];pageIndex=0;strokes=paperPages[0];current=null;draw();updatePaper();$('answer').value='';$('result').className='result hidden';$('transcription').classList.add('hidden');$('question').textContent=problem.title;$('question').classList.toggle('word-question',['word','measurement','geometry','time','data'].includes(topic));$('questionNumber').textContent=`ข้อที่ ${String(number).padStart(2,'0')}`;$('topicBadge').textContent=symbols[topic]+' '+TOPICS[topic];$('answerUnit').textContent=problem.unit;$('answer').placeholder=topic==='fraction'?'เช่น 3/4':'เช่น 144';$('answer').inputMode=topic==='fraction'?'text':'decimal';$('boardState').textContent='พร้อมให้ลองคิด';renderProblemVisual();
   document.querySelectorAll('[data-topic]').forEach(b=>b.classList.toggle('active',b.dataset.topic===topic));
+  lessonSelect.value=topic;
   coach('เริ่มจากสิ่งที่รู้ก่อนนะ ลองเขียนวิธีคิดบนกระดาน หรือกดขอคำใบ้ได้เลย',false);updateTip();
   if(voice?.dc.readyState==='open')sendEvent({type:'conversation.item.create',item:{type:'message',role:'user',content:[{type:'input_text',text:'เปลี่ยนโจทย์แล้ว ภาพและคำตอบเก่าห้ามใช้กับข้อนี้ โจทย์ใหม่: '+problem.title}]}});
 }
-function updateTip(){const titles={multiply:'แยกจำนวน ช่วยให้คิดง่ายขึ้น',divide:'การคูณช่วยตรวจการหาร',fraction:'ทุกส่วนต้องมีขนาดเท่ากัน',decimal:'จัดจุดให้ตรง แล้วค่อยบวก',word:'วาดกลุ่ม ช่วยให้เห็นโจทย์'};$('tipTitle').textContent=titles[topic];$('tipText').textContent=problem.hints[1];$('visual').replaceChildren();if(problem.visual){const v=problem.visual;for(let i=0;i<v.d;i++){const el=document.createElement('i');el.className=i<v.a?'a':i<v.a+v.b?'b':'';el.title=`ส่วนที่ ${i+1} จาก ${v.d}`;$('visual').append(el);}}}
+function updateTip(){const titles={addition:'บวกตามค่าประจำหลัก',subtraction:'ตรวจการลบด้วยการบวก',multiply:'แยกจำนวน ช่วยให้คิดง่ายขึ้น',divide:'การคูณช่วยตรวจการหาร',mixed:'ลำดับการคำนวณสำคัญ',fraction:'ทุกส่วนต้องมีขนาดเท่ากัน',decimal:'จัดจุดให้ตรงกัน',measurement:'เปลี่ยนหน่วยให้เหมือนกัน',geometry:'แยกรอบรูป พื้นที่ และปริมาตร',time:'หนึ่งชั่วโมงมีหกสิบนาที',data:'อ่านค่าก่อนเลือกวิธีคำนวณ',word:'วาดกลุ่ม ช่วยให้เห็นโจทย์'};$('tipTitle').textContent=titles[topic];$('tipText').textContent=problem.hints[1];$('visual').replaceChildren();if(problem.visual?.type==='fraction'){const v=problem.visual;for(let i=0;i<v.d;i++){const el=document.createElement('i');el.className=i<v.a?'a':i<v.a+v.b?'b':'';el.title=`ส่วนที่ ${i+1} จาก ${v.d}`;$('visual').append(el);}}}
+function renderProblemVisual(){
+  const box=$('problemVisual');box.replaceChildren();const v=problem.visual;box.classList.toggle('hidden',!v||v.type==='fraction');if(!v||v.type==='fraction')return;
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 360 160');svg.setAttribute('role','img');svg.setAttribute('aria-label',v.type==='bars'?'แผนภูมิหนังสือของสามห้อง':'ภาพประกอบ ขนาดตามป้าย ไม่วัดจากภาพ');
+  const shape=(name,attrs,text)=>{const el=document.createElementNS(svg.namespaceURI,name);for(const [k,value]of Object.entries(attrs))el.setAttribute(k,String(value));if(text!==undefined)el.textContent=text;svg.append(el);};
+  if(v.type==='bars'){v.values.forEach((value,i)=>{const y=15+i*42;shape('text',{x:5,y:y+20},['ก','ข','ค'][i]);shape('rect',{x:35,y,width:value*2.7,height:26,rx:4,fill:'#dce8c9'});shape('text',{x:45+value*2.7,y:y+20},value+' เล่ม');});}
+  else {shape('rect',{x:60,y:45,width:190,height:85,fill:'#edf3e6',stroke:'#66805a','stroke-width':2});shape('text',{x:120,y:150},v.a+' ซม.');shape('text',{x:5,y:92},(v.type==='cuboid'?v.c:v.b)+' ซม.');if(v.type==='cuboid'){shape('path',{d:'M60 45L100 15H290V100L250 130M250 45L290 15',fill:'none',stroke:'#66805a','stroke-width':2});shape('text',{x:295,y:125},v.b+' ซม.');}shape('text',{x:130,y:30},'ภาพประกอบ');}
+  box.append(svg);
+}
+function updatePaper(){$('paperPage').textContent=`หน้า ${pageIndex+1} / ${paperPages.length}`;$('prevPage').disabled=pageIndex===0;$('nextPage').disabled=pageIndex===paperPages.length-1;$('addPage').disabled=paperPages.length>=12;}
+function turnPage(index){if(current||index<0||index>=paperPages.length)return;paperPages[pageIndex]=strokes;pageIndex=index;strokes=paperPages[pageIndex];invalidate();draw();updatePaper();$('transcription').classList.add('hidden');$('result').classList.add('hidden');$('boardState').textContent='AI ดูเฉพาะหน้าที่เปิดอยู่';}
 function hint(){const text=problem.hints[Math.min(hintIndex,problem.hints.length-1)];hintIndex++;coach(text);showResult('☼ '+text);if(voice?.dc.readyState==='open')voiceAsk('ช่วยอธิบายคำใบ้นี้สั้น ๆ โดยยังไม่เฉลย: '+text);}
 function drawStroke(c,s){if(!s.points.length)return;c.save();c.globalCompositeOperation=s.tool==='eraser'?'destination-out':'source-over';c.lineWidth=s.width;c.strokeStyle=s.color;c.fillStyle=s.color;c.lineCap='round';c.lineJoin='round';if(s.points.length===1){c.beginPath();c.arc(s.points[0].x,s.points[0].y,s.width/2,0,Math.PI*2);c.fill();}else{c.beginPath();c.moveTo(s.points[0].x,s.points[0].y);for(const p of s.points.slice(1))c.lineTo(p.x,p.y);c.stroke();}c.restore();}
 function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);for(const s of strokes)drawStroke(ctx,s);if(current)drawStroke(ctx,current);$('boardPlaceholder').classList.toggle('hidden',strokes.length>0||Boolean(current));$('undo').disabled=strokes.length===0;}
 function point(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)*canvas.width/r.width,y:(e.clientY-r.top)*canvas.height/r.height};}
-canvas.addEventListener('pointerdown',e=>{if(current||e.button>0||(e.pointerType==='touch'&&Date.now()-penSeen<2500))return;if(e.pointerType==='pen')penSeen=Date.now();e.preventDefault();canvas.setPointerCapture(e.pointerId);current={id:e.pointerId,tool,color,width:tool==='eraser'?48:Number($('penWidth').value)*2,points:[point(e)]};changed();draw();});
+canvas.addEventListener('pointerdown',e=>{if(current||tool==='pan'||e.button>0||(e.pointerType==='touch'&&Date.now()-penSeen<2500))return;if(e.pointerType==='pen')penSeen=Date.now();e.preventDefault();canvas.setPointerCapture(e.pointerId);current={id:e.pointerId,tool,color,width:tool==='eraser'?36:Number($('penWidth').value)*1.5,points:[point(e)]};changed();draw();});
 canvas.addEventListener('pointermove',e=>{if(!current||current.id!==e.pointerId)return;e.preventDefault();for(const v of e.getCoalescedEvents?.()||[e])current.points.push(point(v));if(current.points.length>10000){strokes.push(current);current={...current,points:[point(e)]};}draw();});
 function endStroke(e){if(!current||current.id!==e.pointerId)return;strokes.push(current);current=null;draw();changed();$('boardState').textContent=aiReady()&&$('autoCheck').checked?'รอตรวจเมื่อเขียนจบ…':'เขียนต่อได้ หรือกดตรวจคำตอบ';}
 canvas.addEventListener('pointerup',endStroke);canvas.addEventListener('pointercancel',endStroke);
-function boardImage(){const c=document.createElement('canvas');c.width=900;c.height=510;const g=c.getContext('2d');g.fillStyle='white';g.fillRect(0,0,c.width,c.height);g.drawImage(canvas,0,0,c.width,c.height);return c.toDataURL('image/png');}
+function boardImage(){
+  const pixels=ctx.getImageData(0,0,canvas.width,canvas.height).data;let left=canvas.width,top=canvas.height,right=0,bottom=0;
+  for(let y=0;y<canvas.height;y++)for(let x=0;x<canvas.width;x++)if(pixels[(y*canvas.width+x)*4+3]){left=Math.min(left,x);top=Math.min(top,y);right=Math.max(right,x);bottom=Math.max(bottom,y);}
+  if(left>right){left=0;top=0;right=canvas.width-1;bottom=canvas.height-1;}
+  left=Math.max(0,left-45);top=Math.max(0,top-45);right=Math.min(canvas.width,right+46);bottom=Math.min(canvas.height,bottom+46);
+  const w=right-left,h=bottom-top,scale=Math.min(1,900/w,1050/h),c=document.createElement('canvas');c.width=Math.max(1,Math.round(w*scale));c.height=Math.max(1,Math.round(h*scale));const g=c.getContext('2d');g.fillStyle='white';g.fillRect(0,0,c.width,c.height);g.drawImage(canvas,left,top,w,h,0,0,c.width,c.height);return c.toDataURL('image/png');
+}
 function boardHasInk(){const pixels=ctx.getImageData(0,0,canvas.width,canvas.height).data;for(let i=3;i<pixels.length;i+=4)if(pixels[i])return true;return false;}
 function typedCheck(){const input=$('answer').value.trim();const verdict=gradeAnswer(problem,input);if(verdict==='unclear'){showResult('ลองพิมพ์เฉพาะตัวเลข หรือเศษส่วน เช่น 3/4 เพื่อให้ตรวจได้ครับ');return;}if(verdict==='correct'){record(true,'typed');showResult('✓ คำตอบถูกแล้ว! '+problem.solution,'correct');coach('ทำได้แล้ว! ลองอธิบายดูนะว่าเราเลือกใช้วิธีนี้เพราะอะไร');}else{record(false,'typed');hintIndex++;showResult('ใกล้แล้ว ลองตรวจอีกครั้งนะ · '+problem.hints[0],'incorrect');coach(problem.hints[0]);}if(voice?.dc.readyState==='open')voiceAsk('ระบบตรวจคำตอบที่พิมพ์ได้ผล '+verdict+' ช่วยให้กำลังใจหรือให้คำใบ้สั้น ๆ ไม่เฉลยเพิ่ม');}
 async function reviewBoard(auto=false,question=''){
@@ -68,7 +91,7 @@ async function reviewBoard(auto=false,question=''){
   const rev=revision,id=problem.id;reviewAbort=new AbortController();reviewBusy=true;lastReview=Date.now();aiChecks++;$('checkBtn').disabled=true;$('boardState').textContent='ครูคิดกำลังดูกระดาน…';
   const timeout=setTimeout(()=>reviewAbort?.abort(),40000);
   try{
-    const r=await fetch('/api/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({problem:spec(),image:boardImage(),revision:rev,adultConsent,question}),signal:reviewAbort.signal});const data=await r.json();if(!r.ok)throw Error(data.error||'ตรวจไม่สำเร็จ');
+    const r=await fetch('/api/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({problem:spec(),image:boardImage(),revision:rev,adultConsent,question:`ภาพเฉพาะหน้าที่ ${pageIndex+1} จาก ${paperPages.length} หน้า อย่าอ้างว่าเห็นหน้าอื่น ${question}`}),signal:reviewAbort.signal});const data=await r.json();if(!r.ok)throw Error(data.error||'ตรวจไม่สำเร็จ');
     if(rev!==revision||id!==problem.id||current)return;
     hintIndex++;$('boardState').textContent='ตรวจภาพล่าสุดแล้ว · '+new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});coach(data.feedback||'ลองเขียนขั้นถัดไปให้ดูหน่อยนะ',!auto);$('transcription').classList.remove('hidden');$('transcription').textContent='AI อ่านว่า: '+data.transcription;
     if(data.uncertain){showResult('ครูคิดยังอ่านบางจุดไม่ชัด ลองเขียนตัวเลขให้ห่างขึ้นหรือพิมพ์คำตอบยืนยันนะ');}
@@ -82,11 +105,11 @@ async function check(){clearTimeout(autoTimer);if($('answer').value.trim())typed
 function sendEvent(event){if(voice?.dc.readyState==='open')voice.dc.send(JSON.stringify(event));}
 function sendBoardContext(text='ภาพกระดานล่าสุด ใช้แทนภาพก่อนหน้า'){
   if(!voice||voice.dc.readyState!=='open')return false;
-  const key=JSON.stringify([problem.id,revision,$('answer').value,Boolean(current)]);
+  const key=JSON.stringify([problem.id,revision,pageIndex,$('answer').value,Boolean(current)]);
   if(voice.boardKey===key){sendEvent({type:'conversation.item.create',item:{type:'message',role:'user',content:[{type:'input_text',text}]}});return true;}
   if(voice.boardItem){sendEvent({type:'conversation.item.delete',item_id:voice.boardItem});voice.boardItem=null;}
   const itemId='board_'+crypto.randomUUID().replaceAll('-','').slice(0,24);
-  const content=[{type:'input_text',text:`${text}\nโจทย์: ${problem.title}\nกระดานรุ่น ${revision} ${current?'กำลังเขียน ห้ามตัดสิน':'เขียนจบช่วงนี้แล้ว'}\nคำตอบที่พิมพ์: ${$('answer').value||'ยังไม่มี'}`}];
+  const content=[{type:'input_text',text:`${text}\nโจทย์: ${problem.title}\nภาพเฉพาะหน้า ${pageIndex+1} จาก ${paperPages.length} ห้ามอ้างว่าเห็นหน้าอื่น\nกระดานรุ่น ${revision} ${current?'กำลังเขียน ห้ามตัดสิน':'เขียนจบช่วงนี้แล้ว'}\nคำตอบที่พิมพ์: ${$('answer').value||'ยังไม่มี'}`}];
   if(boardHasInk()){const image=boardImage();if(image.length<55000)content.push({type:'input_image',image_url:image});else{content[0].text+='\nภาพใหญ่เกินช่องเสียง ยังไม่ส่งภาพ ห้ามอ้างว่าเห็นลายมือล่าสุด';toast('ภาพกระดานใหญ่ ใช้ปุ่มตรวจคำตอบเพื่ออ่านลายมือแทน');}}
   sendEvent({type:'conversation.item.create',item:{id:itemId,type:'message',role:'user',content}});voice.boardItem=itemId;voice.boardKey=key;return true;
 }
@@ -99,7 +122,7 @@ async function consultTutor(call){
   try{
     const args=JSON.parse(call.arguments||'{}');
     if(typeof args.question!=='string'||!args.question.trim())throw Error('คำถามไม่ครบ');
-    const body={problem:spec(),adultConsent,question:args.question,revision};if(boardHasInk())body.image=boardImage();
+    const body={problem:spec(),adultConsent,question:`ภาพเฉพาะหน้า ${pageIndex+1}/${paperPages.length} ห้ามอ้างหน้าอื่น\n${args.question}`,revision};if(boardHasInk())body.image=boardImage();
     const r=await fetch('/api/tutor',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:job.controller.signal});const data=await r.json();
     if(!r.ok)throw Error(data.error||'ขอคำแนะนำไม่ได้');
     if(data.problemId!==job.id||data.revision!==job.revision)throw Error('บริบทเปลี่ยนแล้ว');
@@ -165,10 +188,22 @@ function learnView(){$('learnView').classList.remove('hidden');$('historyView').
 document.querySelectorAll('[data-topic]').forEach(b=>b.onclick=()=>{topic=b.dataset.topic;solved=false;learnView();newProblem();});
 document.querySelectorAll('[data-grade]').forEach(b=>b.onclick=()=>{grade=Number(b.dataset.grade);solved=false;document.querySelectorAll('[data-grade]').forEach(v=>v.classList.toggle('active',v===b));newProblem();});
 $('level').onchange=()=>{level=Number($('level').value);solved=false;newProblem();};
+lessonSelect.onchange=()=>{topic=lessonSelect.value;solved=false;learnView();newProblem();};
 $('nextBtn').onclick=newProblem;$('checkBtn').onclick=check;$('hintBtn').onclick=hint;
 $('answer').onkeydown=e=>{if(e.key==='Enter')check();};$('answer').oninput=()=>{invalidate();};
-$('pen').onclick=()=>{tool='pen';$('pen').classList.add('active');$('eraser').classList.remove('active');};
-$('eraser').onclick=()=>{tool='eraser';$('eraser').classList.add('active');$('pen').classList.remove('active');};
+function selectTool(value){if(current)return;tool=value;for(const name of ['pen','eraser','pan'])$(name).classList.toggle('active',name===value);canvas.classList.toggle('pan-mode',value==='pan');}
+const pan=document.createElement('button');pan.id='pan';pan.className='tool';pan.textContent='↕';pan.title='เลื่อนกระดาษ';pan.setAttribute('aria-label','เลื่อนกระดาษ');$('eraser').after(pan);pan.onclick=()=>selectTool('pan');
+$('penWidth').min='1';$('penWidth').max='8';$('penWidth').value='3';
+$('pen').onclick=()=>selectTool('pen');
+$('eraser').onclick=()=>selectTool('eraser');
+$('prevPage').onclick=()=>turnPage(pageIndex-1);$('nextPage').onclick=()=>turnPage(pageIndex+1);
+$('addPage').onclick=()=>{if(current||paperPages.length>=12)return;paperPages.push([]);turnPage(paperPages.length-1);};
+function expandPaper(expanded){document.body.classList.toggle('writing-mode',expanded);$('expandBoard').setAttribute('aria-pressed',String(expanded));$('expandBoard').textContent=expanded?'↙ กลับห้องเรียน':'⤢ ขยายพื้นที่เขียน';}
+$('expandBoard').onclick=()=>expandPaper(!document.body.classList.contains('writing-mode'));
+document.addEventListener('keydown',e=>{if(e.key==='Escape')expandPaper(false);});
+const paperVoice=document.createElement('button');paperVoice.id='paperVoice';paperVoice.textContent='♩ คุยกับครูคิด';paperVoice.onclick=()=>$('voiceBtn').click();$('expandBoard').before(paperVoice);
+const paperStatus=document.createElement('p');paperStatus.className='paper-voice-status';paperStatus.setAttribute('aria-live','polite');document.querySelector('.paper-controls').after(paperStatus);
+new MutationObserver(()=>{paperVoice.textContent=voice?'◼ จบการคุย':'♩ คุยกับครูคิด';paperVoice.disabled=$('voiceBtn').disabled;paperStatus.textContent=$('voiceCaption').textContent;}).observe($('voiceCaption'),{childList:true,subtree:true,characterData:true});
 document.querySelectorAll('[data-color]').forEach(b=>b.onclick=()=>{color=b.dataset.color;$('pen').click();document.querySelectorAll('[data-color]').forEach(v=>v.classList.toggle('active',v===b));});
 $('undo').onclick=()=>{current=null;strokes.pop();draw();changed();};$('clear').onclick=()=>{current=null;strokes=[];draw();changed();$('boardState').textContent='กระดานใหม่ พร้อมให้ลองคิด';};
 $('autoCheck').onchange=()=>{clearTimeout(autoTimer);if($('autoCheck').checked){toast('จะตรวจหลังหยุดเขียน โดยเว้นอย่างน้อย 7 วินาทีต่อครั้ง');if(strokes.length)autoTimer=setTimeout(()=>reviewBoard(true),1800);}};

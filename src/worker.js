@@ -30,7 +30,7 @@ async function authenticatedActor(request,env,ctx){
 }
 function problemFrom(b){
   const p=b.problem;
-  if(!p||![4,5].includes(p.grade)||!['multiply','divide','fraction','decimal','word'].includes(p.topic)||![1,2,3].includes(p.level)||!Number.isInteger(p.seed)||p.seed<0||p.seed>4294967295)throw Error('BAD_INPUT');
+  if(!p||![4,5].includes(p.grade)||!Object.hasOwn(TOPICS,p.topic)||![1,2,3].includes(p.level)||!Number.isInteger(p.seed)||p.seed<0||p.seed>4294967295)throw Error('BAD_INPUT');
   return makeProblem(p.grade,p.topic,p.level,p.seed);
 }
 async function bodyJSON(request){

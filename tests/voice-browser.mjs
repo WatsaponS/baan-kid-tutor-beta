@@ -45,7 +45,7 @@ try{
  const tool=call_id=>({type:'response.done',response:{status:'completed',output:[{type:'function_call',name:'math_coach',call_id,arguments:JSON.stringify({question:'ทำไมต้องทด'})}]}});
  await page.evaluate(m=>window.rtcTest.emit(m),tool('call_math'));
  await page.waitForFunction(()=>window.rtcTest.sent.some(e=>e.item?.call_id==='call_math'&&e.item.output.includes('TOOL_ADVICE')));
- assert.equal(tutorRequest.question,'ทำไมต้องทด');await page.waitForTimeout(50);
+ assert.match(tutorRequest.question,/ทำไมต้องทด/);assert.match(tutorRequest.question,/1\/1/);await page.waitForTimeout(50);
  assert.equal(await page.evaluate(()=>window.rtcTest.sent.filter(e=>e.type==='response.create').at(-1).response.tool_choice),'none');
  delayTutor=true;await page.evaluate(m=>window.rtcTest.emit(m),tool('call_cancel'));
  await page.waitForFunction(()=>document.getElementById('voiceCaption').textContent.includes('GPT-6.1'));

@@ -70,3 +70,12 @@ test('reasoning consultation requires identity, consent and bounded input; uses 
   assert.equal((await worker.fetch(request('/api/tutor',body),env)).status,502);
  }finally{globalThis.fetch=realFetch;}
 });
+test('new practice topics are supported by the authenticated AI review contract',async()=>{
+ const realFetch=globalThis.fetch;
+ try{for(const topic of ['addition','subtraction','mixed','measurement','geometry','time','data']){
+  const p=makeProblem(5,topic,3,92);
+  globalThis.fetch=async()=>Response.json({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify({transcription:'test',final_answer:p.answer,uncertain:false,feedback:'ตรวจขั้นตอนอีกครั้ง'})}]}]});
+  const ctx={access:{getIdentity:async()=>({email:topic+'@example.test'})}};
+  const r=await rawWorker.fetch(request('/api/review',{problem:p,adultConsent:true,image:'data:image/png;base64,AA=='}),env,ctx);assert.equal(r.status,200,topic);assert.equal((await r.json()).verdict,'correct',topic);
+ }}finally{globalThis.fetch=realFetch;}
+});
