@@ -1,8 +1,10 @@
 export const TOPICS = { addition:'การบวก', subtraction:'การลบ', multiply:'การคูณ', divide:'การหาร', mixed:'คำนวณระคน', fraction:'เศษส่วน', decimal:'ทศนิยม', measurement:'การวัดและหน่วย', geometry:'พื้นที่และรูปทรง', time:'เวลา', data:'อ่านข้อมูล', word:'โจทย์ปัญหา' };
+export const FRACTION_SKILLS={auto:'คละตามระดับชั้น',addUnlike:'บวก · ส่วนไม่เท่ากัน',subtractUnlike:'ลบ · ส่วนไม่เท่ากัน',addSame:'บวก · ส่วนเท่ากัน',subtractSame:'ลบ · ส่วนเท่ากัน',multiply:'คูณเศษส่วน',divide:'หารเศษส่วน'};
 export function gcd(a,b){while(b){[a,b]=[b,a%b];}return Math.abs(a);}
 export function fraction(n,d){const g=gcd(n,d);return d/g===1?String(n/g):`${n/g}/${d/g}`;}
-export function makeProblem(grade=4,topic='multiply',level=1,seed=1){
+export function makeProblem(grade=4,topic='multiply',level=1,seed=1,fractionSkill='auto'){
   grade=Number(grade)===5?5:4; topic=TOPICS[topic]?topic:'multiply'; level=Math.max(1,Math.min(3,Number(level)||1));
+  fractionSkill=Object.hasOwn(FRACTION_SKILLS,fractionSkill)?fractionSkill:'auto';
   let state=Number(seed)>>>0; const rand=(lo,hi)=>{state=(Math.imul(1664525,state)+1013904223)>>>0;return lo+state%(hi-lo+1);};
   let a,b,answer,title,hints,solution,visual=null,unit='';
   if(topic==='addition'||topic==='subtraction'){
@@ -16,13 +18,20 @@ export function makeProblem(grade=4,topic='multiply',level=1,seed=1){
     b=rand(2,level===1?9:15);const q=rand(grade===4?12:21,level===1?49:129);a=b*q;answer=String(q);title=`${a} ÷ ${b} = ?`;
     hints=[`เรากำลังแบ่ง ${a} ออกเป็นกลุ่ม กลุ่มละ ${b} ลองคิดว่ามีกี่กลุ่ม`,`ใช้การคูณย้อนกลับ: ${b} คูณจำนวนใดแล้วได้ ${a}?`];solution=`${a} ÷ ${b} = ${q} ตรวจย้อนกลับ: ${q} × ${b} = ${a}`;
   }else if(topic==='fraction'){
-    const d=rand(3,level===1?9:12);a=rand(1,d-2);b=rand(1,d-a-1);
-    const mult=grade===5&&level>1?rand(2,3):1;answer=fraction(a+b,d);title=`${a}/${d} + ${b*mult}/${d*mult} = ?`;
-    hints=[mult>1?`ทำให้ส่วนเท่ากันก่อน ลองดูว่า ${d*mult} เป็นกี่เท่าของ ${d}`:'เมื่อส่วนเท่ากัน เราบวกจำนวนชิ้นด้านบน แล้วคงขนาดชิ้นเดิมไว้',`ลองวาดแถบแบ่งเป็น ${d} ส่วนเท่า ๆ กัน ระบาย ${a} ส่วน แล้วเพิ่มอีก ${b} ส่วน`];
-    solution=`${b*mult}/${d*mult} = ${b}/${d} ดังนั้น ${a}/${d} + ${b}/${d} = ${a+b}/${d} = ${answer}`;visual={type:'fraction',d,a,b};
-    if(level>1&&rand(0,1)===1){
-      if(grade===5&&level===3){answer=fraction(a*b,d*d);title=`${a}/${d} × ${b}/${d} = ?`;hints=['การคูณเศษส่วน: คูณตัวเศษกับตัวเศษ และตัวส่วนกับตัวส่วน','ลองตัดทอนตัวประกอบร่วมก่อนหรือหลังคูณ'];solution=`(${a} × ${b}) / (${d} × ${d}) = ${a*b}/${d*d} = ${answer}`;visual=null;}
-      else {const hi=Math.max(a,b),lo=Math.min(a,b);answer=fraction(hi-lo,d);title=`${hi}/${d} − ${lo*mult}/${d*mult} = ?`;hints=['ทำตัวส่วนให้เท่ากันก่อน แล้วลบตัวเศษ โดยคงตัวส่วนไว้','ลองวาดแถบเศษส่วนแล้วขีดส่วนที่เอาออก'];solution=`${lo*mult}/${d*mult} = ${lo}/${d} ดังนั้น (${hi} − ${lo})/${d} = ${answer}`;visual=null;}
+    const choices=grade===5?(level===3?['addUnlike','subtractUnlike','multiply','divide']:['addUnlike','subtractUnlike']):level===1?['addSame','subtractSame']:['addUnlike','subtractUnlike'];
+    const skill=fractionSkill==='auto'?choices[(Number(seed)>>>0)%choices.length]:fractionSkill;
+    const pairs=level===1?[[2,3],[3,4],[4,6],[3,5]]:level===2?[[4,9],[6,8],[5,12],[8,12]]:[[9,12],[8,15],[12,18],[15,20]];
+    let [d,e]=pairs[rand(0,pairs.length-1)];if(skill.endsWith('Same'))d=e=rand(3,level===1?9:16);
+    a=rand(1,d-1);b=rand(1,e-1);while(gcd(a,d)!==1)a=a%(d-1)+1;while(gcd(b,e)!==1)b=b%(e-1)+1;
+    const subtract=skill.startsWith('subtract');if(subtract&&a*e<b*d){[a,b]=[b,a];[d,e]=[e,d];}
+    if(skill==='multiply'||skill==='divide'){
+      const divide=skill==='divide';answer=divide?fraction(a*e,d*b):fraction(a*b,d*e);title=`(${a}/${d}) ${divide?'÷':'×'} (${b}/${e}) = ?`;
+      hints=[divide?'หารด้วยเศษส่วน เท่ากับคูณด้วยส่วนกลับของตัวหาร':'คูณตัวเศษกับตัวเศษ และตัวส่วนกับตัวส่วน',divide?`ส่วนกลับของ ${b}/${e} คือ ${e}/${b} แล้วลองตัดทอนก่อนคูณ`:'ตัดทอนตัวประกอบร่วม แล้วตรวจว่าคำตอบเป็นเศษส่วนอย่างต่ำ'];solution=divide?`${a}/${d} × ${e}/${b} = ${a*e}/${d*b} = ${answer}`:`(${a} × ${b}) / (${d} × ${e}) = ${a*b}/${d*e} = ${answer}`;
+    }else{
+      const common=d/gcd(d,e)*e,n1=a*(common/d),n2=b*(common/e),op=subtract?'−':'+';answer=fraction(subtract?n1-n2:n1+n2,common);title=`${a}/${d} ${op} ${b}/${e} = ?`;
+      hints=[d===e?`ส่วนเท่ากันแล้ว ${subtract?'ลบ':'บวก'}เฉพาะตัวเศษ โดยคงตัวส่วนเดิม`:`หาตัวส่วนร่วมของ ${d} กับ ${e} ก่อน ห้าม${subtract?'ลบ':'บวก'}ตัวส่วนเข้าด้วยกัน`,d===e?'คำนวณตัวเศษ แล้วตัดทอนคำตอบเป็นเศษส่วนอย่างต่ำ':`ใช้ตัวส่วนร่วม ${common}: คูณทั้งตัวเศษและตัวส่วนของจำนวนแรกด้วย ${common/d} และจำนวนที่สองด้วย ${common/e}`];
+      solution=`${a}/${d} = ${n1}/${common} และ ${b}/${e} = ${n2}/${common} ดังนั้น (${n1} ${op} ${n2})/${common} = ${answer}`;
+      if(!subtract&&d===e&&a+b<=d)visual={type:'fraction',d,a,b};
     }
   }else if(topic==='decimal'){
     const scale=grade===5&&level>1?100:10; a=rand(11,level===1?99:399);b=rand(11,99);const digits=scale===100?2:1;
@@ -48,7 +57,7 @@ export function makeProblem(grade=4,topic='multiply',level=1,seed=1){
     if(level===2){const price=rand(3,12);title=`มีเงิน ${a*b} บาท ซื้อดินสอ ${a} แท่ง ราคาแท่งละ ${price} บาท เหลือเงินกี่บาท?`;unit='บาท';answer=String(a*b-a*price);hints=['หาค่าดินสอทั้งหมดก่อน แล้วหักออกจากเงินที่มี',`ค่าดินสอ = ${a} × ${price} บาท`];solution=`${a*b} − (${a} × ${price}) = ${a*b} − ${a*price} = ${answer} บาท`;}
     if(level===3){const groups=rand(2,8),extra=rand(1,9);title=`มีขนม ${groups} กล่อง กล่องละ ${b} ชิ้น ได้เพิ่มอีก ${extra*groups} ชิ้น แบ่งให้เด็ก ${groups} คนเท่า ๆ กัน ได้คนละกี่ชิ้น?`;unit='ชิ้น';answer=String(b+extra);hints=['หาขนมทั้งหมดทั้งที่มีและได้เพิ่ม แล้วค่อยแบ่งเท่า ๆ กัน',`เขียนเป็น (${groups} × ${b} + ${extra*groups}) ÷ ${groups}`];solution=`(${groups*b} + ${extra*groups}) ÷ ${groups} = ${answer} ชิ้น` ;}
   }
-  return {grade,topic,level,seed:Number(seed)>>>0,title,answer,hints,solution,visual,unit,id:`${grade}-${topic}-${level}-${Number(seed)>>>0}`};
+  return {grade,topic,level,seed:Number(seed)>>>0,fractionSkill,title,answer,hints,solution,visual,unit,id:`${grade}-${topic}-${level}-${Number(seed)>>>0}${topic==='fraction'&&fractionSkill!=='auto'?'-'+fractionSkill:''}`};
 }
 export function parseNumber(value){
   if(typeof value!=='string'&&typeof value!=='number')return null;

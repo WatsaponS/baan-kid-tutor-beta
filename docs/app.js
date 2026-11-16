@@ -1,4 +1,4 @@
-import {makeProblem,gradeAnswer,TOPICS} from './math.js';
+import {makeProblem,gradeAnswer,TOPICS,FRACTION_SKILLS} from './math.js';
 const $=id=>document.getElementById(id);
 const staticDemo=document.documentElement.dataset.host==='github-pages';
 const symbols={addition:'+',subtraction:'−',multiply:'×',divide:'÷',mixed:'( )',fraction:'½',decimal:'.0',measurement:'↔',geometry:'▱',time:'◷',data:'▥',word:'≋'};
@@ -7,6 +7,7 @@ for(const [key,label]of Object.entries(TOPICS)){const button=document.createElem
 const topicPicker=document.createElement('label');topicPicker.className='topic-picker';topicPicker.textContent='เรื่อง ';const lessonSelect=document.createElement('select');lessonSelect.id='lessonSelect';lessonSelect.setAttribute('aria-label','เลือกเรื่องที่อยากฝึก');for(const [key,label]of Object.entries(TOPICS))lessonSelect.append(new Option(label,key));topicPicker.append(lessonSelect);document.querySelector('.exercise-meta').prepend(topicPicker);
 document.querySelector('.beta').textContent='1.0';document.querySelector('.footer-right').textContent='MATH PRACTICE / 1.0';document.querySelector('.setting-notice').firstChild.textContent='ชุดฝึก 1.0 · AI สำหรับผู้ใหญ่ทดลอง';
 let paperPages=[[]],pageIndex=0;const recentTitles=new Set();
+let fractionSkill='auto';const fractionPicker=document.createElement('label');fractionPicker.className='topic-picker hidden';fractionPicker.textContent='ฝึกเศษส่วน ';const fractionSelect=document.createElement('select');fractionSelect.id='fractionSkill';fractionSelect.setAttribute('aria-label','เลือกทักษะเศษส่วน');for(const [key,label]of Object.entries(FRACTION_SKILLS))fractionSelect.append(new Option(label,key));fractionPicker.append(fractionSelect);document.querySelector('.exercise-meta').after(fractionPicker);
 let config={mode:'demo',hasKey:false},grade=4,topic='multiply',level=1,problem,number=0,hintIndex=0,solved=false,attempted=new Set(),revision=0,strokes=[],current=null,color='#344c40',tool='pen',penSeen=0,autoTimer,reviewAbort,reviewBusy=false,lastReview=0,aiChecks=0;
 let history=[];try{const h=JSON.parse(localStorage.getItem('baankid-history')||'[]');if(Array.isArray(h))history=h.filter(x=>x&&typeof x.title==='string'&&typeof x.correct==='boolean'&&Number.isFinite(x.at)).slice(-300);}catch{}
 let prefs={readAloud:false,adaptive:true,voiceQuality:'quality',microphoneMode:'tablet'};try{Object.assign(prefs,JSON.parse(localStorage.getItem('baankid-prefs')||'{}'));}catch{}
@@ -26,7 +27,7 @@ addVoicePreferences();
 function persist(){try{localStorage.setItem('baankid-history',JSON.stringify(history.slice(-300)));}catch{toast('พื้นที่เก็บข้อมูลเต็ม ประวัติรอบนี้จะอยู่จนกว่าจะปิดหน้า');}}
 function toast(text){$('toast').textContent=text;$('toast').classList.remove('hidden');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.add('hidden'),4500);}
 function aiReady(){return config.mode==='adult-test'&&adultConsent;}
-function spec(){return {grade:problem.grade,topic:problem.topic,level:problem.level,seed:problem.seed};}
+function spec(){return {grade:problem.grade,topic:problem.topic,level:problem.level,seed:problem.seed,fractionSkill:problem.fractionSkill};}
 function say(text){if(!ttsEnabled||voice)return;if(!('speechSynthesis'in window)){toast('เบราว์เซอร์นี้ไม่มีเสียงอ่าน ใช้ข้อความได้ครับ');return;}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='th-TH';u.rate=.88;const v=speechSynthesis.getVoices().find(v=>v.lang.startsWith('th'));if(v)u.voice=v;u.onerror=()=>toast('เสียงอ่านไม่พร้อม ใช้คำใบ้บนหน้าจอได้ครับ');speechSynthesis.speak(u);}
 function coach(text,speak=true){$('coachMessage').textContent=text;if(speak)say(text);}
 function showResult(text,status=''){const box=$('result');box.className='result '+status;box.textContent=text;}
@@ -46,7 +47,8 @@ function changed(){revision++;clearTimeout(autoTimer);reviewAbort?.abort();stopR
 function invalidate(){revision++;clearTimeout(autoTimer);reviewAbort?.abort();stopReply();}
 function newProblem(){
   invalidate();if(prefs.adaptive&&solved&&level<3){const recent=history.filter(h=>h.topic===topic&&h.grade===grade).slice(-3);if(recent.length===3&&recent.every(h=>h.correct&&!h.helped)&&new Set(recent.map(h=>h.id)).size===3){level++;$('level').value=String(level);toast('ทำได้ด้วยตัวเอง 3 ข้อติดแล้ว ลองระดับถัดไปกัน!');}}
-  for(let tries=0;tries<20;tries++){problem=makeProblem(grade,topic,level,crypto.getRandomValues(new Uint32Array(1))[0]);if(!recentTitles.has(problem.title))break;}recentTitles.add(problem.title);if(recentTitles.size>200)recentTitles.delete(recentTitles.values().next().value);
+  for(let tries=0;tries<20;tries++){problem=makeProblem(grade,topic,level,crypto.getRandomValues(new Uint32Array(1))[0],fractionSkill);if(!recentTitles.has(problem.title))break;}recentTitles.add(problem.title);if(recentTitles.size>200)recentTitles.delete(recentTitles.values().next().value);
+  fractionPicker.classList.toggle('hidden',topic!=='fraction');fractionSelect.value=fractionSkill;
   number++;hintIndex=0;solved=false;attempted.clear();paperPages=[[]];pageIndex=0;strokes=paperPages[0];current=null;draw();updatePaper();$('answer').value='';$('result').className='result hidden';$('transcription').classList.add('hidden');$('question').textContent=problem.title;$('question').classList.toggle('word-question',['word','measurement','geometry','time','data'].includes(topic));$('questionNumber').textContent=`ข้อที่ ${String(number).padStart(2,'0')}`;$('topicBadge').textContent=symbols[topic]+' '+TOPICS[topic];$('answerUnit').textContent=problem.unit;$('answer').placeholder=topic==='fraction'?'เช่น 3/4':'เช่น 144';$('answer').inputMode=topic==='fraction'?'text':'decimal';$('boardState').textContent='พร้อมให้ลองคิด';renderProblemVisual();
   document.querySelectorAll('[data-topic]').forEach(b=>b.classList.toggle('active',b.dataset.topic===topic));
   lessonSelect.value=topic;
@@ -189,6 +191,7 @@ document.querySelectorAll('[data-topic]').forEach(b=>b.onclick=()=>{topic=b.data
 document.querySelectorAll('[data-grade]').forEach(b=>b.onclick=()=>{grade=Number(b.dataset.grade);solved=false;document.querySelectorAll('[data-grade]').forEach(v=>v.classList.toggle('active',v===b));newProblem();});
 $('level').onchange=()=>{level=Number($('level').value);solved=false;newProblem();};
 lessonSelect.onchange=()=>{topic=lessonSelect.value;solved=false;learnView();newProblem();};
+fractionSelect.onchange=()=>{fractionSkill=fractionSelect.value;solved=false;newProblem();};
 $('nextBtn').onclick=newProblem;$('checkBtn').onclick=check;$('hintBtn').onclick=hint;
 $('answer').onkeydown=e=>{if(e.key==='Enter')check();};$('answer').oninput=()=>{invalidate();};
 function selectTool(value){if(current)return;tool=value;for(const name of ['pen','eraser','pan'])$(name).classList.toggle('active',name===value);canvas.classList.toggle('pan-mode',value==='pan');}

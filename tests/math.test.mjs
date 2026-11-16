@@ -1,12 +1,23 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {makeProblem,gradeAnswer,parseNumber,TOPICS} from '../src/math.js';
+import {makeProblem,gradeAnswer,parseNumber,TOPICS,FRACTION_SKILLS} from '../src/math.js';
 test('answers accept equivalent fractions, decimals and Thai numerals without executing input',()=>{
  assert.equal(gradeAnswer({answer:'3/4'},'6/8'),'correct');
  assert.equal(gradeAnswer({answer:'0.75'},'๓/๔'),'correct');
  assert.equal(gradeAnswer({answer:'1.5'},'1 1/2'),'correct');
  assert.equal(gradeAnswer({answer:'0'},''),'unclear');
  assert.equal(parseNumber('1/0'),null);assert.equal(parseNumber('2+2'),null);assert.equal(parseNumber('alert(1)'),null);
+});
+test('fraction skills guarantee the selected operation and denominators, including Grade 5 defaults',()=>{
+ for(const skill of Object.keys(FRACTION_SKILLS))for(const grade of [4,5])for(const level of [1,2,3])for(let seed=0;seed<250;seed++){
+  const p=makeProblem(grade,'fraction',level,seed,skill),n=p.title.match(/\d+/g).map(Number);
+  assert.ok(Math.abs(parseNumber(p.answer)-calculate(p.title))<1e-9,JSON.stringify(p));assert.ok(parseNumber(p.answer)>=0);
+  if(skill.endsWith('Unlike'))assert.notEqual(n[1],n[3]);if(skill.endsWith('Same'))assert.equal(n[1],n[3]);
+  if(skill.startsWith('subtract'))assert.match(p.title,/−/);if(skill.startsWith('add'))assert.match(p.title,/\+/);if(skill==='multiply')assert.match(p.title,/×/);if(skill==='divide')assert.match(p.title,/÷/);
+  if(skill==='auto'&&grade===5&&level<3){assert.notEqual(n[1],n[3]);assert.match(p.title,/[+−]/);}
+  assert.equal(p.id,makeProblem(grade,'fraction',level,seed,skill).id);
+ }
+ const a=makeProblem(5,'fraction',1,1,'addUnlike'),b=makeProblem(5,'fraction',1,1,'subtractUnlike');assert.notEqual(a.id,b.id);
 });
 // Independent expression parser: validates the displayed problem, not generator internals.
 function calculate(text){
