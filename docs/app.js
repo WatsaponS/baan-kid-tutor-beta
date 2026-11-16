@@ -1,6 +1,8 @@
 import {makeProblem,gradeAnswer,TOPICS,FRACTION_SKILLS} from './math.js';
 import {P5_UNITS,P5_SKILLS,publicProblemFacts} from './curriculum.js';
 import {renderCurriculumTask} from './curriculum-ui.js';
+import {mountLocalMath} from './local-math.js';
+import {validateSteps,thaiStepFeedback} from './math-step-validator.js';
 const $=id=>document.getElementById(id);
 const staticDemo=document.documentElement.dataset.host==='github-pages';
 const symbols={addition:'+',subtraction:'−',multiply:'×',divide:'÷',mixed:'( )',fraction:'½',decimal:'.0',measurement:'↔',geometry:'▱',time:'◷',data:'▥',word:'≋',proportion:'↗',percent:'%',parallel:'∥',volume:'▣'};
@@ -19,6 +21,7 @@ let config={mode:'demo',hasKey:false},grade=4,topic='multiply',level=1,problem,n
 let history=[];try{const h=JSON.parse(localStorage.getItem('baankid-history')||'[]');if(Array.isArray(h))history=h.filter(x=>x&&typeof x.title==='string'&&typeof x.correct==='boolean'&&Number.isFinite(x.at)).slice(-300);}catch{}
 let prefs={readAloud:false,adaptive:true,voiceQuality:'quality',microphoneMode:'tablet'};try{Object.assign(prefs,JSON.parse(localStorage.getItem('baankid-prefs')||'{}'));}catch{}
 let adultConsent=false,toastTimer,voice=null,voiceConnecting=false,voiceGeneration=0,ttsEnabled=prefs.readAloud;
+let localMath=null;
 const canvas=$('board'),ctx=canvas.getContext('2d');
 function addVoicePreferences(){
   const block=document.createElement('div');block.className='voice-preferences';
@@ -42,7 +45,7 @@ function refreshMode(){
   const live=aiReady();$('modePill').replaceChildren();const dot=document.createElement('i');$('modePill').append(dot,live?' AI · ผู้ใหญ่ทดลอง':' โหมดสาธิต');$('coachMode').textContent=live?'AI TEST':'DEMO';
   $('aiNote').textContent=live?'AI อาจอ่านผิด โปรดยืนยันสิ่งที่อ่านก่อนบันทึกผล':'สาธิตคำใบ้สำเร็จรูป · ยังไม่อ่านลายมือ';
   $('voiceCaption').textContent=live?'เปิดไมค์เพื่อคุยกับ AI · มีค่าใช้งาน API':'โหมดสาธิต · ลองฟังคำใบ้จากเสียงของเครื่อง';
-  $('autoCheck').disabled=!live;if(!live)$('autoCheck').checked=false;
+  $('autoCheck').disabled=false;$('autoLabel').textContent='ในเครื่อง';
   $('connectionStatus').textContent=config.mode==='adult-test'?'เซิร์ฟเวอร์พร้อม · ยืนยันโหมดผู้ใหญ่ทดลองเพื่อเปิด AI':config.hasKey?'พบ API key แล้ว · ยังไม่ได้เปิด AI_ADULT_TEST_ENABLED':'ยังไม่มี API key · ใช้โหมดสาธิตได้ครบทั้งโจทย์และกระดาน';
 }
 async function loadConfig(){if(staticDemo){config={mode:'demo',hasKey:false};refreshMode();$('connectionStatus').textContent='GitHub Pages · โหมดสาธิต ไม่ส่งภาพหรือเสียงไป OpenAI การเปิด AI จริงต้องมี backend แยก';$('adultConsent').disabled=true;return;}try{const r=await fetch('/api/config');if(!r.ok)throw Error();config=await r.json();refreshMode();}catch{toast('ตรวจการเชื่อมต่อไม่ได้ ใช้โหมดสาธิตไปก่อนได้ครับ');}}
@@ -50,9 +53,10 @@ function todaySolved(){const day=new Date().toDateString();return new Set(histor
 function updateProgress(){const count=todaySolved();$('sessionLabel').textContent=`วันนี้สำเร็จแล้ว ${count} ข้อ`;$('progressDots').querySelectorAll('i').forEach((d,i)=>d.classList.toggle('done',i<Math.min(5,count)));}
 function record(correct,source){const key=String($('answer').value).trim()+'|'+correct+'|'+source;if(attempted.has(key)||solved)return;attempted.add(key);history.push({id:problem.id,title:problem.title,grade,topic,level,correct,skill:topic==='fraction'?fractionSkill:practiceSkill,helped:hintIndex>0,source,at:Date.now()});history=history.slice(-300);persist();if(correct)solved=true;updateProgress();}
 function stopReply(){cancelTutor();if(voice?.ready&&voice.dc.readyState==='open'){voice.nextPrompt=null;clearTimeout(voice.replyTimer);if((voice.responding||voice.pendingResponse)&&!voice.cancelRequested){voice.cancelRequested=true;sendEvent({type:'response.cancel'});}sendEvent({type:'output_audio_buffer.clear'});}$('remoteAudio').muted=true;}
-function changed(){revision++;clearTimeout(autoTimer);reviewAbort?.abort();stopReply();$('boardState').textContent='กำลังคิดและเขียน…';if(aiReady()&&$('autoCheck').checked)autoTimer=setTimeout(()=>reviewBoard(true),1800);}
+function changed(){revision++;clearTimeout(autoTimer);reviewAbort?.abort();stopReply();localMath?.reset();$('boardState').textContent='กำลังคิดและเขียน…';if($('autoCheck').checked)autoTimer=setTimeout(()=>{if(!current)localMath?.reviewFreehand(strokes);},1000);}
 function invalidate(){revision++;clearTimeout(autoTimer);reviewAbort?.abort();stopReply();$('result').classList.add('hidden');$('transcription').classList.add('hidden');}
 function newProblem(){
+  localMath?.reset();
   invalidate();if(prefs.adaptive&&solved&&level<3){const recent=history.filter(h=>h.topic===topic&&h.grade===grade&&h.skill===(topic==='fraction'?fractionSkill:practiceSkill)).slice(-3);if(recent.length===3&&recent.every(h=>h.correct&&!h.helped)&&new Set(recent.map(h=>h.id)).size===3){level++;$('level').value=String(level);toast('ทำได้ด้วยตัวเอง 3 ข้อติดแล้ว ลองระดับถัดไปกัน!');}}
   if(practiceSkill!=='auto'&&!Object.hasOwn(P5_SKILLS[topic]||{},practiceSkill))practiceSkill='auto';
   for(let tries=0;tries<20;tries++){problem=makeProblem(grade,topic,level,crypto.getRandomValues(new Uint32Array(1))[0],fractionSkill,practiceSkill);if(!recentTitles.has(problem.title))break;}recentTitles.add(problem.title);if(recentTitles.size>200)recentTitles.delete(recentTitles.values().next().value);
@@ -88,7 +92,7 @@ function renderProblemVisual(){
   box.append(svg);
 }
 function updatePaper(){$('paperPage').textContent=`หน้า ${pageIndex+1} / ${paperPages.length}`;$('prevPage').disabled=pageIndex===0;$('nextPage').disabled=pageIndex===paperPages.length-1;$('addPage').disabled=paperPages.length>=12;}
-function turnPage(index){if(current||index<0||index>=paperPages.length)return;paperPages[pageIndex]=strokes;pageIndex=index;strokes=paperPages[pageIndex];invalidate();draw();updatePaper();$('transcription').classList.add('hidden');$('result').classList.add('hidden');$('boardState').textContent='AI ดูเฉพาะหน้าที่เปิดอยู่';}
+function turnPage(index){if(current||index<0||index>=paperPages.length)return;paperPages[pageIndex]=strokes;pageIndex=index;strokes=paperPages[pageIndex];invalidate();localMath?.reset();draw();updatePaper();$('transcription').classList.add('hidden');$('result').classList.add('hidden');$('boardState').textContent='ตรวจเฉพาะหน้าที่เปิดอยู่';}
 function hint(){const text=problem.hints[Math.min(hintIndex,problem.hints.length-1)];hintIndex++;coach(text);showResult('☼ '+text);if(voice?.dc.readyState==='open')voiceAsk('ช่วยอธิบายคำใบ้นี้สั้น ๆ โดยยังไม่เฉลย: '+text);}
 function drawStroke(c,s){if(!s.points.length)return;c.save();c.globalCompositeOperation=s.tool==='eraser'?'destination-out':'source-over';c.lineWidth=s.width;c.strokeStyle=s.color;c.fillStyle=s.color;c.lineCap='round';c.lineJoin='round';if(s.points.length===1){c.beginPath();c.arc(s.points[0].x,s.points[0].y,s.width/2,0,Math.PI*2);c.fill();}else{c.beginPath();c.moveTo(s.points[0].x,s.points[0].y);for(const p of s.points.slice(1))c.lineTo(p.x,p.y);c.stroke();}c.restore();}
 function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);for(const s of strokes)drawStroke(ctx,s);if(current)drawStroke(ctx,current);$('boardPlaceholder').classList.toggle('hidden',strokes.length>0||Boolean(current));$('undo').disabled=strokes.length===0;}
@@ -105,8 +109,16 @@ function boardImage(){
   const w=right-left,h=bottom-top,scale=Math.min(1,900/w,1050/h),c=document.createElement('canvas');c.width=Math.max(1,Math.round(w*scale));c.height=Math.max(1,Math.round(h*scale));const g=c.getContext('2d');g.fillStyle='white';g.fillRect(0,0,c.width,c.height);g.drawImage(canvas,left,top,w,h,0,0,c.width,c.height);return c.toDataURL('image/png');
 }
 function boardHasInk(){const pixels=ctx.getImageData(0,0,canvas.width,canvas.height).data;for(let i=3;i<pixels.length;i+=4)if(pixels[i])return true;return false;}
-function typedCheck(){const input=$('answer').value.trim();const verdict=gradeAnswer(problem,input);if(verdict==='manual'){showResult('งานนี้ต้องตรวจวิธีสร้างรูป: '+problem.rubric.join(' · ')+' ยังไม่นับคะแนนถูก/ผิดอัตโนมัติ');return;}if(verdict==='unclear'){showResult(problem.answerKind?'กรุณาตอบให้ครบตามรูปแบบที่ระบุด้านบน แล้วลองตรวจอีกครั้ง':'ลองพิมพ์เฉพาะตัวเลข หรือเศษส่วน เช่น 3/4 เพื่อให้ตรวจได้ครับ');return;}if(verdict==='correct'){record(true,'typed');showResult('✓ คำตอบถูกแล้ว! '+problem.solution,'correct');coach('ทำได้แล้ว! ลองอธิบายดูนะว่าเราเลือกใช้วิธีนี้เพราะอะไร');}else{record(false,'typed');hintIndex++;showResult('ใกล้แล้ว ลองตรวจอีกครั้งนะ · '+problem.hints[0],'incorrect');coach(problem.hints[0]);}if(voice?.dc.readyState==='open')voiceAsk('ระบบตรวจคำตอบที่พิมพ์ได้ผล '+verdict+' ช่วยให้กำลังใจหรือให้คำใบ้สั้น ๆ ไม่เฉลยเพิ่ม');}
+function typedCheck(){const verified=localMath?.getState();if(verified?.recognizedHandwriting&&verified.validation.status!=='correct'){showResult(verified.suggestedHint,verified.validation.status==='incorrect'?'incorrect':'');coach(verified.suggestedHint);return;}const input=$('answer').value.trim();const verdict=gradeAnswer(problem,input);if(verdict==='manual'){showResult('งานนี้ต้องตรวจวิธีสร้างรูป: '+problem.rubric.join(' · ')+' ยังไม่นับคะแนนถูก/ผิดอัตโนมัติ');return;}if(verdict==='unclear'){showResult(problem.answerKind?'กรุณาตอบให้ครบตามรูปแบบที่ระบุด้านบน แล้วลองตรวจอีกครั้ง':'ลองพิมพ์เฉพาะตัวเลข หรือเศษส่วน เช่น 3/4 เพื่อให้ตรวจได้ครับ');return;}if(verdict==='correct'){record(true,'typed');showResult('✓ คำตอบถูกแล้ว! '+problem.solution,'correct');coach('ทำได้แล้ว! ลองอธิบายดูนะว่าเราเลือกใช้วิธีนี้เพราะอะไร');}else{record(false,'typed');hintIndex++;showResult('ใกล้แล้ว ลองตรวจอีกครั้งนะ · '+problem.hints[0],'incorrect');coach(problem.hints[0]);}if(voice?.dc.readyState==='open')voiceAsk('ระบบตรวจคำตอบที่พิมพ์ได้ผล '+verdict+' ช่วยให้กำลังใจหรือให้คำใบ้สั้น ๆ ไม่เฉลยเพิ่ม');}
+async function askTextTutor(question){
+ const verified=localMath?.getState();if(verified){coach(verified.suggestedHint);return;}
+ const rev=revision,id=problem.id;reviewAbort?.abort();const controller=new AbortController();reviewAbort=controller;const timer=setTimeout(()=>controller.abort(),30000);
+ try{const body={problem:spec(),adultConsent,revision:rev,question:question.slice(0,2400)};if(boardHasInk())body.image=boardImage();const r=await fetch('/api/tutor',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:controller.signal});const data=await r.json();if(!r.ok)throw Error(data.error||'ขอคำแนะนำไม่ได้');if(rev===revision&&id===problem.id&&!current)coach(data.advice,false);}
+ catch(e){if(e.name!=='AbortError'&&rev===revision)showResult(e.message);}finally{clearTimeout(timer);}
+}
 async function reviewBoard(auto=false,question=''){
+  if(auto){if(!current)localMath?.reviewFreehand(strokes);return;}
+  if(question.trim()&&aiReady()){await askTextTutor(question);return;}
   if(!aiReady()){if(!auto)showResult('โหมดสาธิตยังอ่านลายมือไม่ได้ครับ เขียนวิธีคิดบนกระดาน แล้วพิมพ์คำตอบในช่องด้านล่างเพื่อตรวจ');return;}
   if(current)return;
   if(!boardHasInk()){if(!auto)toast('เขียนบนกระดานก่อน แล้วครูคิดจะช่วยดูครับ');return;}
@@ -118,24 +130,26 @@ async function reviewBoard(auto=false,question=''){
   try{
     const r=await fetch('/api/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({problem:spec(),image:boardImage(),revision:rev,adultConsent,question:`ภาพเฉพาะหน้าที่ ${pageIndex+1} จาก ${paperPages.length} หน้า อย่าอ้างว่าเห็นหน้าอื่น ${question}`}),signal:reviewAbort.signal});const data=await r.json();if(!r.ok)throw Error(data.error||'ตรวจไม่สำเร็จ');
     if(rev!==revision||id!==problem.id||current)return;
-    hintIndex++;$('boardState').textContent='ตรวจภาพล่าสุดแล้ว · '+new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});coach(data.feedback||'ลองเขียนขั้นถัดไปให้ดูหน่อยนะ',!auto);$('transcription').classList.remove('hidden');$('transcription').textContent='AI อ่านว่า: '+data.transcription;
+    hintIndex++;$('boardState').textContent='อ่านภาพแล้ว · รอยืนยันตัวเลข';coach('โปรดยืนยันหรือแก้ตัวเลขที่ AI อ่านได้ก่อนตรวจคณิตศาสตร์',false);$('transcription').classList.remove('hidden');$('transcription').textContent='AI อ่านว่า (ยังไม่ยืนยัน): '+data.transcription;
+    const equation=document.createElement('textarea');equation.value=data.transcription;equation.maxLength=300;equation.setAttribute('aria-label','สมการที่ AI อ่านได้ แก้ก่อนยืนยัน');const confirmSteps=document.createElement('button');confirmSteps.type='button';confirmSteps.textContent='ยืนยันสมการและตรวจทุกขั้นในเครื่อง';confirmSteps.onclick=()=>{if(rev!==revision||id!==problem.id||current){toast('กระดานเปลี่ยนแล้ว กรุณาตรวจใหม่');return;}const result=localMath.confirmExpression(equation.value).validation;const message=thaiStepFeedback(result);showResult(message,result.status==='incorrect'?'incorrect':'');coach(message);};$('transcription').append(equation,confirmSteps);
     if(data.uncertain){showResult('ครูคิดยังอ่านบางจุดไม่ชัด ลองเขียนตัวเลขให้ห่างขึ้นหรือพิมพ์คำตอบยืนยันนะ');}
-    else if(data.final_answer!==null&&data.verdict!=='unclear'){
-      showResult(`AI อ่านคำตอบสุดท้ายว่า ${data.final_answer} · ตรงกับที่เขียนไหม?`);const btn=document.createElement('button');btn.className='secondary-btn';btn.textContent='ใช่ ตรวจคำตอบนี้';btn.onclick=()=>{if(rev!==revision||id!==problem.id){toast('กระดานเปลี่ยนแล้ว กรุณาตรวจใหม่');return;}$('answer').value=data.final_answer;typedCheck();};$('result').append(document.createElement('br'),btn);
+    else if(data.final_answer!==null){
+      showResult(`AI อ่านคำตอบสุดท้ายว่า ${data.final_answer} · ตรงกับที่เขียนไหม?`);const btn=document.createElement('button');btn.className='secondary-btn';btn.textContent='ใช่ ตรวจคำตอบนี้';btn.onclick=()=>{if(rev!==revision||id!==problem.id){toast('กระดานเปลี่ยนแล้ว กรุณาตรวจใหม่');return;}if(equation.value.includes('=')){const steps=validateSteps(equation.value,{confirmed:true});if(steps.status!=='correct'){showResult(thaiStepFeedback(steps),steps.status==='incorrect'?'incorrect':'');return;}}$('answer').value=data.final_answer;typedCheck();};$('result').append(document.createElement('br'),btn);
     }else if(!auto)showResult(data.feedback||'เขียนวิธีคิดต่ออีกนิด แล้วลองตรวจใหม่ครับ');
   }catch(e){if(e.name!=='AbortError'&&rev===revision){$('boardState').textContent='ยังตรวจไม่ได้ ลองอีกครั้ง';if(auto){$('autoCheck').checked=false;toast('พักการตรวจอัตโนมัติ: '+e.message);}else showResult(e.message);}}
   finally{clearTimeout(timeout);reviewBusy=false;$('checkBtn').disabled=false;}
 }
-async function check(){clearTimeout(autoTimer);if(problem.answerKind==='drawing'){if(aiReady()&&boardHasInk())await reviewBoard();else typedCheck();return;}if((problem.answerKind&&problem.answerKind!=='number')||$('answer').value.trim())typedCheck();else await reviewBoard();}
+async function check(){clearTimeout(autoTimer);if((problem.answerKind&&problem.answerKind!=='number')||$('answer').value.trim()){typedCheck();return;}const state=localMath?.getState();if(state){coach(state.suggestedHint);showResult(state.suggestedHint,state.validation.status==='incorrect'?'incorrect':'');}else {const next=localMath?.reviewFreehand(strokes);if(next)showResult(next.suggestedHint);}}
 function sendEvent(event){if(voice?.dc.readyState==='open')voice.dc.send(JSON.stringify(event));}
 function sendBoardContext(text='ภาพกระดานล่าสุด ใช้แทนภาพก่อนหน้า'){
   if(!voice||voice.dc.readyState!=='open')return false;
-  const key=JSON.stringify([problem.id,revision,pageIndex,$('answer').value,Boolean(current)]);
+  const key=JSON.stringify([problem.id,revision,pageIndex,$('answer').value,Boolean(current),localMath?.getState()]);
   if(voice.boardKey===key){sendEvent({type:'conversation.item.create',item:{type:'message',role:'user',content:[{type:'input_text',text}]}});return true;}
   if(voice.boardItem){sendEvent({type:'conversation.item.delete',item_id:voice.boardItem});voice.boardItem=null;}
   const itemId='board_'+crypto.randomUUID().replaceAll('-','').slice(0,24);
   const content=[{type:'input_text',text:`${text}\nโจทย์: ${problem.title}\nข้อมูลรูปและกิจกรรม: ${JSON.stringify(publicProblemFacts(problem))}\nภาพเฉพาะหน้า ${pageIndex+1} จาก ${paperPages.length} ห้ามอ้างว่าเห็นหน้าอื่น\nกระดานรุ่น ${revision} ${current?'กำลังเขียน ห้ามตัดสิน':'เขียนจบช่วงนี้แล้ว'}\nคำตอบที่พิมพ์: ${$('answer').value||'ยังไม่มี'}`}];
-  if(boardHasInk()){const image=boardImage();if(image.length<55000)content.push({type:'input_image',image_url:image});else{content[0].text+='\nภาพใหญ่เกินช่องเสียง ยังไม่ส่งภาพ ห้ามอ้างว่าเห็นลายมือล่าสุด';toast('ภาพกระดานใหญ่ ใช้ปุ่มตรวจคำตอบเพื่ออ่านลายมือแทน');}}
+  const verified=localMath?.getState();content[0].text+='\nสถานะตรวจวิธีทำในเครื่อง: '+JSON.stringify(verified||{validation:{status:'needs_confirmation'},suggestedHint:'ยังไม่ยืนยันตัวเลข ห้ามบอกว่าถูกหรือผิด'});content[0].text+='\nใช้ผลตรวจนี้เป็นหลัก ห้ามอ่านภาพแล้วเปลี่ยนตัวเลขหรือผลตรวจ หากยังไม่ยืนยันให้ถามยืนยันเท่านั้น';
+  if(!verified&&boardHasInk()){const image=boardImage();if(image.length<55000)content.push({type:'input_image',image_url:image});else{content[0].text+='\nภาพใหญ่เกินช่องเสียง ยังไม่ส่งภาพ ห้ามอ้างว่าเห็นลายมือล่าสุด';toast('ภาพกระดานใหญ่ ใช้ปุ่มอ่านภาพด้วย AI แทน');}}
   sendEvent({type:'conversation.item.create',item:{id:itemId,type:'message',role:'user',content}});voice.boardItem=itemId;voice.boardKey=key;return true;
 }
 function cancelTutor(){const job=voice?.tutorJob;if(!job)return;voice.tutorJob=null;job.controller.abort();sendEvent({type:'conversation.item.create',item:{type:'function_call_output',call_id:job.callId,output:JSON.stringify({error:'cancelled',instruction:'ผู้เรียนพูดต่อหรือกระดานเปลี่ยนแล้ว ห้ามใช้คำแนะนำเก่า'})}});}
@@ -147,8 +161,8 @@ async function consultTutor(call){
   try{
     const args=JSON.parse(call.arguments||'{}');
     if(typeof args.question!=='string'||!args.question.trim())throw Error('คำถามไม่ครบ');
-    const body={problem:spec(),adultConsent,question:`ภาพเฉพาะหน้า ${pageIndex+1}/${paperPages.length} ห้ามอ้างหน้าอื่น\n${args.question}`,revision};if(boardHasInk())body.image=boardImage();
-    const r=await fetch('/api/tutor',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:job.controller.signal});const data=await r.json();
+    const verified=localMath?.getState();const body={problem:spec(),adultConsent,question:`ภาพเฉพาะหน้า ${pageIndex+1}/${paperPages.length} ห้ามอ้างหน้าอื่น\n${args.question}`,revision,verifiedStep:verified};if(!verified&&boardHasInk())body.image=boardImage();
+    const r=verified?{ok:true,json:async()=>({advice:verified.suggestedHint,problemId:job.id,revision:job.revision})}:await fetch('/api/tutor',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:job.controller.signal});const data=await r.json();
     if(!r.ok)throw Error(data.error||'ขอคำแนะนำไม่ได้');
     if(data.problemId!==job.id||data.revision!==job.revision)throw Error('บริบทเปลี่ยนแล้ว');
     output={advice:data.advice};voiceLog('math_coach completed');
@@ -156,15 +170,15 @@ async function consultTutor(call){
   finally{clearTimeout(timer);}
   if(voice!==v||v.tutorJob!==job)return;v.tutorJob=null;
   sendEvent({type:'conversation.item.create',item:{type:'function_call_output',call_id:call.call_id,output:JSON.stringify(output)}});
-  v.pendingResponse=true;sendEvent({type:'response.create',response:{output_modalities:['audio'],tool_choice:'none'}});
+  if(localMath?.getState()){localMath.speakState();return;}v.pendingResponse=true;sendEvent({type:'response.create',response:{output_modalities:['audio'],tool_choice:'none'}});
   v.replyTimer=setTimeout(()=>{if(voice===v)voiceIssue('reply_timeout','ยังไม่ได้เสียงตอบ ลองกดให้ครูพูดอีกครั้ง');},20000);
 }
 function voiceLog(text){const lines=$('voiceDebug').textContent.split('\n').filter(s=>s!=='ยังไม่เชื่อมต่อ');lines.push(new Date().toLocaleTimeString('th-TH')+' '+text);$('voiceDebug').textContent=lines.slice(-18).join('\n');}
 function voiceIssue(code,message){voiceLog('ERROR '+String(code||'unknown').replace(/[^a-zA-Z0-9_.-]/g,'').slice(0,90));$('voiceCaption').textContent=message;toast(message);}
-async function playRemote(){const audio=$('remoteAudio');audio.muted=false;try{await audio.play();$('resumeAudioBtn').classList.add('hidden');voiceLog('audio.play OK');}catch{$('resumeAudioBtn').classList.remove('hidden');voiceIssue('playback_blocked','เบราว์เซอร์ยังไม่เล่นเสียง กด “เปิดเสียงตอบ”');}}
+async function playRemote(){if(localMath?.getState()){$('remoteAudio').muted=true;return;}const audio=$('remoteAudio');audio.muted=false;try{await audio.play();$('resumeAudioBtn').classList.add('hidden');voiceLog('audio.play OK');}catch{$('resumeAudioBtn').classList.remove('hidden');voiceIssue('playback_blocked','เบราว์เซอร์ยังไม่เล่นเสียง กด “เปิดเสียงตอบ”');}}
 async function listMics(){try{const devices=await navigator.mediaDevices.enumerateDevices();const selected=$('micSelect').value;$('micSelect').replaceChildren(new Option('ค่าเริ่มต้นของเครื่อง',''));for(const d of devices.filter(d=>d.kind==='audioinput'&&d.deviceId))$('micSelect').append(new Option(d.label||'ไมโครโฟน '+$('micSelect').options.length,d.deviceId));$('micSelect').value=selected;}catch{}}
 function startMeter(v){try{const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;v.audioContext=new Audio();v.audioContext.resume().catch(()=>{});const analyser=v.audioContext.createAnalyser();analyser.fftSize=256;v.audioContext.createMediaStreamSource(v.stream).connect(analyser);const data=new Uint8Array(analyser.fftSize);v.meterTimer=setInterval(()=>{if(voice!==v)return;analyser.getByteTimeDomainData(data);const rms=Math.sqrt(data.reduce((sum,x)=>sum+((x-128)/128)**2,0)/data.length);$('micMeter').value=Math.min(1,rms*5);$('micLabel').textContent=v.muted?'ปิดไมค์อยู่':rms>.008?'รับเสียงจากไมค์ได้':'เปิดไมค์แล้ว · สัญญาณเบา/เงียบ';},150);}catch{voiceLog('mic meter unavailable');}}
-function voiceAsk(text){if(!voice?.ready){$('voiceCaption').textContent='รอ AI เตรียม session ให้พร้อมก่อนครับ';return;}stopReply();if(voice.responding||voice.pendingResponse){voice.nextPrompt=text;return;}if(!sendBoardContext(text))return;voice.pendingResponse=true;voice.cancelRequested=false;$('remoteAudio').muted=false;$('voiceCaption').textContent='ส่งคำถามแล้ว รอครูคิดตอบ…';voiceLog('request response');sendEvent({type:'response.create',response:{output_modalities:['audio']}});const v=voice;v.replyTimer=setTimeout(()=>{if(voice===v)voiceIssue('reply_timeout','ยังไม่ได้คำตอบใน 20 วินาที ดูสถานะเสียงหรือกดให้ครูพูดอีกครั้ง');},20000);}
+function voiceAsk(text){const verified=localMath?.getState();if(verified&&voice?.ready){stopReply();sendBoardContext(text);coach(verified.suggestedHint,false);localMath.speakState();return;}if(!voice?.ready){$('voiceCaption').textContent='รอ AI เตรียม session ให้พร้อมก่อนครับ';return;}stopReply();if(voice.responding||voice.pendingResponse){voice.nextPrompt=text;return;}if(!sendBoardContext(text))return;voice.pendingResponse=true;voice.cancelRequested=false;$('remoteAudio').muted=false;$('voiceCaption').textContent='ส่งคำถามแล้ว รอครูคิดตอบ…';voiceLog('request response');sendEvent({type:'response.create',response:{output_modalities:['audio']}});const v=voice;v.replyTimer=setTimeout(()=>{if(voice===v)voiceIssue('reply_timeout','ยังไม่ได้คำตอบใน 20 วินาที ดูสถานะเสียงหรือกดให้ครูพูดอีกครั้ง');},20000);}
 function stopVoice(message='จบการคุยแล้ว'){voiceGeneration++;voiceConnecting=false;if(voice){cancelTutor();clearTimeout(voice.timeout);clearTimeout(voice.connectTimer);clearTimeout(voice.replyTimer);clearInterval(voice.meterTimer);voice.audioContext?.close().catch(()=>{});voice.dc.onclose=null;voice.dc.close();voice.pc.close();voice.stream.getTracks().forEach(t=>t.stop());voice=null;}$('remoteAudio').srcObject=null;$('voiceBtn').classList.remove('connected');$('voiceBtn').replaceChildren();const s=document.createElement('span');s.textContent='♩';$('voiceBtn').append(s,' คุยกับครูคิด');$('voiceControls').classList.add('hidden');$('voiceCaption').textContent=message;$('voiceBtn').disabled=false;$('retryReplyBtn').disabled=true;$('resumeAudioBtn').classList.add('hidden');$('micMeter').value=0;$('micLabel').textContent='ยังไม่เปิดไมค์';$('muteBtn').textContent='ปิดไมค์';}
 async function startVoice(){
   if(voice||voiceConnecting){stopVoice();return;}
@@ -193,7 +207,7 @@ async function startVoice(){
       if(m.type==='conversation.item.input_audio_transcription.completed'&&(!v.inputItem||m.item_id===v.inputItem)){$('heardSpeech').textContent='ถอดเสียงล่าสุด: '+(m.transcript||'(ไม่พบคำพูดชัดเจน)')+'\nหากไม่ตรง พิมพ์แก้ไขในช่องถามครูคิดได้';}
       if(m.type==='conversation.item.input_audio_transcription.failed')$('heardSpeech').textContent='ยังถอดเสียงไม่ได้ แต่ครูยังรับเสียงโดยตรงได้ ลองพูดใหม่หรือพิมพ์คำถาม';
       if(m.type==='response.created'){v.responding=true;v.pendingResponse=false;v.transcript='';if(v.cancelRequested)sendEvent({type:'response.cancel'});}
-      if(['response.output_audio_transcript.delta','response.audio_transcript.delta'].includes(m.type)){clearTimeout(v.replyTimer);v.transcript+=m.delta;coach(v.transcript,false);}
+      if(['response.output_audio_transcript.delta','response.audio_transcript.delta'].includes(m.type)){clearTimeout(v.replyTimer);v.transcript+=m.delta;if(!localMath?.getState())coach(v.transcript,false);}
       if(m.type==='output_audio_buffer.started'){if(v.speechEnd!==null&&v.speechEnd!==undefined){voiceLog('speech_stopped -> audio_buffer.started '+Math.round(performance.now()-v.speechEnd)+' ms (excludes end-of-turn detection)');v.speechEnd=null;}clearTimeout(v.replyTimer);$('voiceCaption').textContent='ครูคิดกำลังพูด…';playRemote();}
       if(m.type==='response.done'){const cancelled=v.cancelRequested;v.responding=false;v.pendingResponse=false;v.cancelRequested=false;clearTimeout(v.replyTimer);const next=v.nextPrompt;v.nextPrompt=null;if(m.response?.status==='failed'){const code=m.response?.status_details?.error?.code||'response_failed';voiceIssue(code,'AI ตอบไม่สำเร็จ ('+code+')');}else if(next){voiceAsk(next);}else if(!cancelled&&m.response?.status==='completed'&&m.response?.output?.some(o=>o.type==='function_call'&&o.name==='math_coach')){const calls=m.response.output.filter(o=>o.type==='function_call');for(const extra of calls.slice(1))sendEvent({type:'conversation.item.create',item:{type:'function_call_output',call_id:extra.call_id,output:JSON.stringify({error:'one_consultation_per_turn'})}});consultTutor(calls[0]);}else $('voiceCaption').textContent='AI กำลังฟัง · พูดถามต่อได้เลย';}
       if(m.type==='error'){const code=m.error?.code||'realtime_error';if(code!=='response_cancel_not_active'){v.pendingResponse=false;clearTimeout(v.replyTimer);voiceIssue(code,'เสียง AI ขัดข้อง ('+code+') ดูสถานะการเชื่อมต่อเสียง');}}
@@ -217,7 +231,7 @@ lessonSelect.onchange=()=>{topic=lessonSelect.value;solved=false;learnView();new
 fractionSelect.onchange=()=>{fractionSkill=fractionSelect.value;solved=false;newProblem();};
 skillSelect.onchange=()=>{practiceSkill=skillSelect.value;solved=false;newProblem();};
 $('nextBtn').onclick=newProblem;$('checkBtn').onclick=check;$('hintBtn').onclick=hint;
-$('answer').onkeydown=e=>{if(e.key==='Enter')check();};$('answer').oninput=()=>{invalidate();};
+$('answer').onkeydown=e=>{if(e.key==='Enter')check();};$('answer').oninput=()=>{const state=localMath?.getState();invalidate();if(state)localMath.rebaseForTypedAnswer(state);};
 function selectTool(value){if(current)return;tool=value;for(const name of ['pen','eraser','pan'])$(name).classList.toggle('active',name===value);canvas.classList.toggle('pan-mode',value==='pan');}
 const pan=document.createElement('button');pan.id='pan';pan.className='tool';pan.textContent='↕';pan.title='เลื่อนกระดาษ';pan.setAttribute('aria-label','เลื่อนกระดาษ');$('eraser').after(pan);pan.onclick=()=>selectTool('pan');
 $('penWidth').min='1';$('penWidth').max='8';$('penWidth').value='3';
@@ -233,7 +247,7 @@ const paperStatus=document.createElement('p');paperStatus.className='paper-voice
 new MutationObserver(()=>{paperVoice.textContent=voice?'◼ จบการคุย':'♩ คุยกับครูคิด';paperVoice.disabled=$('voiceBtn').disabled;paperStatus.textContent=$('voiceCaption').textContent;}).observe($('voiceCaption'),{childList:true,subtree:true,characterData:true});
 document.querySelectorAll('[data-color]').forEach(b=>b.onclick=()=>{color=b.dataset.color;$('pen').click();document.querySelectorAll('[data-color]').forEach(v=>v.classList.toggle('active',v===b));});
 $('undo').onclick=()=>{current=null;strokes.pop();draw();changed();};$('clear').onclick=()=>{current=null;strokes=[];draw();changed();$('boardState').textContent='กระดานใหม่ พร้อมให้ลองคิด';};
-$('autoCheck').onchange=()=>{clearTimeout(autoTimer);if($('autoCheck').checked){toast('จะตรวจหลังหยุดเขียน โดยเว้นอย่างน้อย 7 วินาทีต่อครั้ง');if(strokes.length)autoTimer=setTimeout(()=>reviewBoard(true),1800);}};
+$('autoCheck').onchange=()=>{clearTimeout(autoTimer);if($('autoCheck').checked){toast('ตรวจในเครื่องหลังหยุดเขียน 1 วินาที ไม่เรียก API อัตโนมัติ');if(strokes.length)autoTimer=setTimeout(()=>{if(!current)localMath?.reviewFreehand(strokes);},1000);}};
 $('voiceBtn').onclick=startVoice;$('stopSpeechBtn').onclick=stopReply;
 $('retryReplyBtn').onclick=()=>voiceAsk('ช่วยทักทายและอธิบายโจทย์ปัจจุบันสั้น ๆ โดยยังไม่เฉลย');
 $('resumeAudioBtn').onclick=playRemote;
@@ -248,4 +262,8 @@ $('settingsBtn').onclick=openSettings;$('avatar').onclick=openSettings;
 $('saveSettings').onclick=()=>{const nextConsent=$('adultConsent').checked;if(adultConsent!==nextConsent||prefs.voiceQuality!==$('voiceQuality').value||prefs.microphoneMode!==$('microphoneMode').value){stopVoice();invalidate();}adultConsent=nextConsent;prefs={readAloud:$('readAloud').checked,adaptive:$('adaptive').checked,voiceQuality:$('voiceQuality').value,microphoneMode:$('microphoneMode').value};ttsEnabled=prefs.readAloud;try{localStorage.setItem('baankid-prefs',JSON.stringify(prefs));}catch{}refreshMode();$('settings').close();toast(aiReady()?'เปิดโหมด AI สำหรับผู้ใหญ่ทดลองแล้ว':'บันทึกแล้ว · ใช้โหมดสาธิต');};
 document.addEventListener('visibilitychange',()=>{if(document.hidden){stopVoice('พักการคุยเมื่อออกจากหน้า');clearTimeout(autoTimer);reviewAbort?.abort();if('speechSynthesis'in window)speechSynthesis.cancel();}});
 window.addEventListener('pagehide',()=>stopVoice());
+localMath=mountLocalMath({host:document.querySelector('.board-top').parentElement,getContext:()=>({problem,revision,page:pageIndex}),onMutation:invalidate,onFeedback:state=>{coach(state.suggestedHint,false);if(voice?.ready){stopReply();sendBoardContext('Latest local verification state. Never override the deterministic result.');}$('boardState').textContent=state.validation.status==='needs_confirmation'?'รอยืนยันตัวเลข · ตรวจในเครื่อง':state.suggestedHint;},speak:text=>{if(!('speechSynthesis'in window)){toast('เครื่องนี้ไม่มีเสียงอ่าน ใช้ข้อความได้ครับ');return;}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='th-TH';const thai=speechSynthesis.getVoices().find(v=>v.lang.startsWith('th'));if(!thai){toast('ไม่พบเสียงภาษาไทยในเครื่อง ใช้คำแนะนำบนหน้าจอได้ครับ');return;}u.voice=thai;u.onerror=()=>toast('เสียงอ่านไม่พร้อม ใช้ข้อความได้ครับ');speechSynthesis.speak(u);}});
+document.querySelector('.board-top').before(localMath.element);
+const cloudReview=document.createElement('button');cloudReview.type='button';cloudReview.id='cloudReview';cloudReview.className='secondary-btn';cloudReview.textContent='อ่านภาพด้วย AI · ใช้เครดิต API';cloudReview.onclick=()=>reviewBoard(false);document.querySelector('.board-top').after(cloudReview);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)localMath.pause();});
 newProblem();updateProgress();refreshMode();loadConfig();

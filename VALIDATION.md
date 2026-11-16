@@ -1,5 +1,12 @@
 # Beta validation
 
+## Local handwriting branch (16 November 2026)
+
+- 24 Node tests cover exact rational intermediate-step checks, mixed-number conversions, equivalent and simplified forms, incomplete/invalid expressions, ambiguous readings, geometry-only layout evidence and recognition alternatives. `3 1/4 = 15/4` is explicitly rejected, including when a later answer matches the canonical task.
+- Local browser integration writes independent synthetic pen paths for a mixed conversion, confirms/corrects the result, checks simplification, pending input, writing pauses, stale-page resets and 1024/768/390px layouts. It asserts zero paid review/tutor/voice requests. Synthetic samples are not evidence of real child-handwriting accuracy.
+- Voice regression uses a mock WebRTC transport, synthetic mic and mock Thai TTS. The verified hint is spoken verbatim locally, unsolicited AI audio is muted, and local-step reasoning makes no extra tutor API call. General Realtime flows still pass outside local verification. Server tests reject forged/stale client verdicts and require confirmation for every OCR reading, even a matching final answer.
+- Existing browser, fraction, paper, curriculum and Pages regressions were exercised. No real OpenAI key, paid call or physical Android device was used. See `research/LOCAL_HANDWRITING.md` for the Phase 1 boundary and remaining Phase 2 model/real-ink evaluation.
+
 ## Curriculum 1.1 (16 November 2026)
 
 - 17 Node tests pass. The curriculum suite independently recomputes 33,480 generated cases from displayed statements and diagram/table givens: 62 skills × 3 levels × 180 seeds. Legacy arithmetic and fraction suites remain in place. Eight chapters map to 19 Grade 5 indicator codes; mapping is a coverage plan, not educational certification.

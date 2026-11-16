@@ -8,7 +8,7 @@ const server=createServer(async(req,res)=>{try{
  const url=new URL(req.url,'http://localhost');
  if(!url.pathname.startsWith(prefix))throw Error();
  const filename=url.pathname.slice(prefix.length)||'index.html';
- if(!['index.html','app.js','style.css','math.js','curriculum.js','curriculum-ui.js'].includes(filename))throw Error();
+ if(!['index.html','app.js','style.css','math.js','curriculum.js','curriculum-ui.js','fraction-layout.js','ink-recognition.js','local-math.js','math-step-validator.js'].includes(filename))throw Error();
  const text=await readFile('docs/'+filename);res.setHeader('Content-Type',types[filename.slice(filename.lastIndexOf('.'))]);res.end(text);
 }catch{res.writeHead(404);res.end();}});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -21,7 +21,7 @@ try{
  const nums=(await page.locator('#question').textContent()).match(/\d+/g).map(Number);
  await page.locator('#answer').fill(String(nums[0]*nums[1]));await page.locator('#checkBtn').click();assert.match(await page.locator('#result').textContent(),/คำตอบถูกแล้ว/);
  await page.locator('#settingsBtn').click();assert.match(await page.locator('#connectionStatus').textContent(),/GitHub Pages/);assert.equal(await page.locator('#adultConsent').isDisabled(),true);await page.locator('#saveSettings').click();
- await page.locator('#nextBtn').click();await page.locator('#checkBtn').click();assert.match(await page.locator('#result').textContent(),/ยังอ่านลายมือไม่ได้/);
+ await page.locator('#nextBtn').click();await page.locator('#checkBtn').click();assert.match(await page.locator('#result').textContent(),/เขียนวิธีทำก่อน/);
  assert.deepEqual(errors,[]);assert.deepEqual(apiCalls,[]);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
  console.log('Pages browser checks passed under /baan-kid-tutor-beta/: relative modules/assets, grading, settings and zero API calls.');
 }finally{await browser.close();server.close();}

@@ -34,7 +34,7 @@ test('review uses trusted server answer, propagates uncertain reads, and handles
  try{
   globalThis.fetch=async(url,options)=>{sent=JSON.parse(options.body);return Response.json({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify({transcription:'test',final_answer:p.answer,uncertain:false,feedback:'ลองตรวจด้วยการแยกจำนวน'})}]}]});};
   const data={problem:{...p,answer:'-999'},adultConsent:true,image:'data:image/png;base64,AA==',revision:3};
-  const res=await worker.fetch(request('/api/review',data),env);assert.equal(res.status,200);assert.equal((await res.json()).verdict,'correct');assert.equal(sent.store,false);
+  const res=await worker.fetch(request('/api/review',data),env);assert.equal(res.status,200);const provisional=await res.json();assert.equal(provisional.verdict,'unclear');assert.equal(provisional.requiresConfirmation,true);assert.equal(sent.store,false);assert.ok(!JSON.stringify(sent).includes(p.title));
   globalThis.fetch=async()=>Response.json({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify({transcription:'?',final_answer:p.answer,uncertain:true,feedback:'ช่วยเขียนใหม่'})}]}]});
   assert.equal((await(await worker.fetch(request('/api/review',data),env)).json()).verdict,'unclear');
   globalThis.fetch=async()=>new Response('billing details should not leak',{status:429});
@@ -76,18 +76,29 @@ test('new practice topics are supported by the authenticated AI review contract'
   const p=makeProblem(5,topic,3,92,topic==='fraction'?'mixedDivide':'auto');
   globalThis.fetch=async()=>Response.json({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify({transcription:'test',final_answer:p.answer,uncertain:false,feedback:'ตรวจขั้นตอนอีกครั้ง'})}]}]});
   const ctx={access:{getIdentity:async()=>({email:topic+'@example.test'})}};
-  const r=await rawWorker.fetch(request('/api/review',{problem:p,adultConsent:true,image:'data:image/png;base64,AA=='}),env,ctx);assert.equal(r.status,200,topic);assert.equal((await r.json()).verdict,'correct',topic);
+  const r=await rawWorker.fetch(request('/api/review',{problem:p,adultConsent:true,image:'data:image/png;base64,AA=='}),env,ctx);assert.equal(r.status,200,topic);const read=await r.json();assert.equal(read.verdict,'unclear',topic);assert.equal(read.final_answer,p.answer);assert.equal(read.requiresConfirmation,true);
  }}finally{globalThis.fetch=realFetch;}
 });
-test('curriculum specifications are server-validated and chart facts are trusted; OCR cannot grade construction',async()=>{
+test('curriculum specifications are server-validated and OCR is blind to expected answers; construction is not graded',async()=>{
  const realFetch=globalThis.fetch;const ctx={access:{getIdentity:async()=>({email:'curriculum@example.test'})}};let sent;
  try{
   const p=makeProblem(5,'data',2,32,'auto','buildBar');
   globalThis.fetch=async(url,opts)=>{sent=JSON.parse(opts.body);return Response.json({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify({transcription:'test',final_answer:'100',uncertain:false,feedback:'ตรวจแกนตั้ง'})}]}]});};
   const res=await rawWorker.fetch(request('/api/review',{problem:{...p,diagram:{series:'FORGED'},answer:'FORGED'},adultConsent:true,image:'data:image/png;base64,AA=='}),env,ctx);
   assert.equal(res.status,200);const data=await res.json();assert.equal(data.final_answer,null);assert.equal(data.verdict,'unclear');
-  const prompt=sent.input[0].content[0].text;assert.ok(!prompt.includes('FORGED'));assert.ok(prompt.includes(JSON.stringify(p.diagram)));
+  const prompt=sent.input[0].content[0].text;assert.ok(!prompt.includes('FORGED'));assert.ok(!prompt.includes(JSON.stringify(p.diagram)));assert.ok(!JSON.stringify(sent).includes(p.title));
   const bad=await rawWorker.fetch(request('/api/review',{problem:{...p,practiceSkill:'missing-skill'},adultConsent:true,image:'data:image/png;base64,AA=='}),env,ctx);assert.equal(bad.status,400);
   for(const topic of ['proportion','percent','parallel','volume']){const q=makeProblem(5,topic,1,22);const r=await rawWorker.fetch(request('/api/review',{problem:q,adultConsent:true,image:'data:image/png;base64,AA=='}),env,ctx);assert.equal(r.status,200,topic);}
+ }finally{globalThis.fetch=realFetch;}
+});
+
+test('verified step advice is recomputed exactly and never calls a paid model or trusts client verdicts',async()=>{
+ const realFetch=globalThis.fetch;const p=makeProblem();const ctx={access:{getIdentity:async()=>({email:'local-step@example.test'})}};
+ const baseBody={problem:p,adultConsent:true,revision:18,question:'ตรวจขั้นนี้',verifiedStep:{originalProblem:{id:p.id},boardRevision:18,recognizedHandwriting:'3 1/4 = 15/4',confirmed:true,validation:{status:'correct'}}};
+ try{globalThis.fetch=async()=>{throw Error('Paid call forbidden');};
+  const r=await rawWorker.fetch(request('/api/tutor',baseBody),env,ctx);assert.equal(r.status,200);const data=await r.json();assert.equal(data.validation.status,'incorrect');assert.equal(data.source,'deterministic-local-step');assert.match(data.advice,/3 คูณ 4/);
+  const uncertain=await rawWorker.fetch(request('/api/tutor',{...baseBody,verifiedStep:{...baseBody.verifiedStep,confirmed:false}}),env,ctx);assert.equal((await uncertain.json()).validation.status,'needs_confirmation');
+  const correct=await rawWorker.fetch(request('/api/tutor',{...baseBody,verifiedStep:{...baseBody.verifiedStep,recognizedHandwriting:'3 1/4 = 13/4'}}),env,ctx);assert.equal((await correct.json()).validation.status,'correct');
+  const stale=await rawWorker.fetch(request('/api/tutor',{...baseBody,verifiedStep:{...baseBody.verifiedStep,boardRevision:17}}),env,ctx);assert.equal(stale.status,400);
  }finally{globalThis.fetch=realFetch;}
 });
