@@ -38,6 +38,21 @@ try{
  await page.evaluate(()=>window.rtcTest.emit({type:'input_audio_buffer.committed',item_id:'thai-turn'}));await page.waitForTimeout(60);assert.equal(await page.evaluate(()=>window.rtcTest.sent.filter(e=>e.type==='response.create').length),2);
  await page.evaluate(()=>window.rtcTest.emit({type:'conversation.item.input_audio_transcription.completed',item_id:'thai-turn',transcript:'เจ็ดสิบแปดคูณห้า ต้องทดไหม'}));assert.match(await page.locator('#heardSpeech').textContent(),/เจ็ดสิบแปดคูณห้า/);
  await page.evaluate(()=>window.rtcTest.emit({type:'conversation.item.input_audio_transcription.completed',item_id:'old-turn',transcript:'OLD_TRANSCRIPT'}));assert.ok(!(await page.locator('#heardSpeech').textContent()).includes('OLD_TRANSCRIPT'));
+ assert.equal(await page.evaluate(()=>window.rtcTest.sent.filter(e=>e.item?.id?.startsWith('board_')).length),1,'unchanged board context is reused');
+ let tutorRequest,delayTutor=false;
+ const {makeProblem}=await import('../src/math.js');
+ await page.route('**/api/tutor',async r=>{tutorRequest=r.request().postDataJSON();if(delayTutor)await new Promise(resolve=>setTimeout(resolve,250));const p=tutorRequest.problem;await r.fulfill({json:{advice:'TOOL_ADVICE',problemId:makeProblem(p.grade,p.topic,p.level,p.seed).id,revision:tutorRequest.revision}}).catch(()=>{});});
+ const tool=call_id=>({type:'response.done',response:{status:'completed',output:[{type:'function_call',name:'math_coach',call_id,arguments:JSON.stringify({question:'ทำไมต้องทด'})}]}});
+ await page.evaluate(m=>window.rtcTest.emit(m),tool('call_math'));
+ await page.waitForFunction(()=>window.rtcTest.sent.some(e=>e.item?.call_id==='call_math'&&e.item.output.includes('TOOL_ADVICE')));
+ assert.equal(tutorRequest.question,'ทำไมต้องทด');await page.waitForTimeout(50);
+ assert.equal(await page.evaluate(()=>window.rtcTest.sent.filter(e=>e.type==='response.create').at(-1).response.tool_choice),'none');
+ delayTutor=true;await page.evaluate(m=>window.rtcTest.emit(m),tool('call_cancel'));
+ await page.waitForFunction(()=>document.getElementById('voiceCaption').textContent.includes('GPT-6.1'));
+ await page.evaluate(()=>window.rtcTest.emit({type:'input_audio_buffer.speech_started'}));await page.waitForTimeout(350);
+ const cancelled=await page.evaluate(()=>window.rtcTest.sent.filter(e=>e.item?.call_id==='call_cancel'));
+ assert.equal(cancelled.length,1);assert.match(cancelled[0].item.output,/cancelled/);
+ await page.evaluate(()=>{window.rtcTest.emit({type:'input_audio_buffer.speech_stopped'});window.rtcTest.emit({type:'output_audio_buffer.started'});});assert.match(await page.locator('#voiceDebug').textContent(),/excludes end-of-turn detection/);
  // A new request during generation waits for cancellation acknowledgement.
  await page.evaluate(()=>window.rtcTest.hold=true);await page.locator('#retryReplyBtn').click();await page.waitForTimeout(25);
  const requests=await page.evaluate(()=>window.rtcTest.sent.filter(e=>e.type==='response.create').length);await page.locator('#retryReplyBtn').click();await page.waitForTimeout(80);assert.equal(await page.evaluate(()=>window.rtcTest.sent.filter(e=>e.type==='response.create').length),requests+1);

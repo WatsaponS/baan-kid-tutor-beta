@@ -46,7 +46,7 @@ test('voice creates the server-configured session without giving a key to the br
  try{
   globalThis.fetch=async(url,opts)=>{assert.equal(url,'https://api.openai.com/v1/realtime/calls');session=JSON.parse(opts.body.get('session'));return new Response('v=0\r\nmock-answer',{headers:{'Content-Type':'application/sdp'}});};
   const r=await worker.fetch(request('/api/voice',{problem:makeProblem(),adultConsent:true,sdp:'v=0\r\ntest'}),env);
-  assert.equal(r.status,200);assert.equal(session.audio.input.turn_detection.create_response,false);assert.equal(session.model,'gpt-realtime-2.1');assert.equal(session.audio.input.turn_detection.type,'semantic_vad');assert.equal(session.audio.input.turn_detection.eagerness,'low');assert.equal(session.audio.input.transcription.language,'th');assert.equal(session.audio.input.noise_reduction.type,'far_field');assert.match(session.instructions,/ภาษาไทย/);assert.ok(!(await r.text()).includes(env.OPENAI_API_KEY));
+  assert.equal(r.status,200);assert.equal(session.audio.input.turn_detection.create_response,false);assert.equal(session.model,'gpt-realtime-2.1');assert.equal(session.audio.input.turn_detection.type,'semantic_vad');assert.equal(session.audio.input.turn_detection.eagerness,'high');assert.equal(session.audio.input.transcription.language,'th');assert.equal(session.audio.input.noise_reduction.type,'far_field');assert.match(session.instructions,/ภาษาไทย/);assert.ok(!(await r.text()).includes(env.OPENAI_API_KEY));
   const economy=await worker.fetch(request('/api/voice',{problem:makeProblem(),adultConsent:true,sdp:'v=0\r\ntest',voiceQuality:'economy',microphoneMode:'headset'}),env);
   assert.equal(economy.status,200);assert.equal(session.model,'gpt-realtime-2.1-mini');assert.equal(session.audio.input.noise_reduction.type,'near_field');
  }finally{globalThis.fetch=realFetch;}
@@ -54,4 +54,19 @@ test('voice creates the server-configured session without giving a key to the br
 test('rejects external image URLs and invalid problem specs before forwarding',async()=>{
  const p=makeProblem();const r=await worker.fetch(request('/api/review',{problem:p,adultConsent:true,image:'https://attacker.example/image'}),env);assert.equal(r.status,400);
  const bad=await worker.fetch(request('/api/review',{problem:{...p,grade:99},adultConsent:true,image:'data:image/png;base64,AA=='}),env);assert.equal(bad.status,400);
+});
+test('reasoning consultation requires identity, consent and bounded input; uses server problem',async()=>{
+ const p=makeProblem(4,'multiply',1,71);const body={problem:{...p,solution:'FORGED'},question:'ทำไมต้องทด',adultConsent:true,revision:7};
+ assert.equal((await rawWorker.fetch(request('/api/tutor',body),env,{})).status,401);
+ const realFetch=globalThis.fetch;let sent;
+ try{
+  globalThis.fetch=async(url,opts)=>{assert.equal(url,'https://api.openai.com/v1/responses');sent=JSON.parse(opts.body);return Response.json({status:'completed',output:[{content:[{type:'output_text',text:'แยกหลักหน่วยกับหลักสิบก่อนครับ'}]}]});};
+  const result=await worker.fetch(request('/api/tutor',body),env);assert.equal(result.status,200);assert.equal((await result.json()).revision,7);
+  assert.equal(sent.model,'gpt-6.1-sol');assert.equal(sent.reasoning.effort,'low');assert.equal(sent.store,false);assert.ok(!JSON.stringify(sent).includes('FORGED'));
+  assert.equal((await worker.fetch(request('/api/tutor',{...body,adultConsent:false}),env)).status,503);
+  assert.equal((await worker.fetch(request('/api/tutor',{...body,question:'x'.repeat(2401)}),env)).status,400);
+  assert.equal((await worker.fetch(request('/api/tutor',{...body,image:'https://invalid.example/a.png'}),env)).status,400);
+  globalThis.fetch=async()=>Response.json({status:'incomplete',output:[]});
+  assert.equal((await worker.fetch(request('/api/tutor',body),env)).status,502);
+ }finally{globalThis.fetch=realFetch;}
 });
