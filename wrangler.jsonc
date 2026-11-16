@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "baan-kid-tutor-beta",
+  "main": "dist/server/index.js",
+  "compatibility_date": "2026-11-16",
+  "workers_dev": true,
+  "preview_urls": false,
+  "vars": {
+    "AI_ADULT_TEST_ENABLED": "false"
+  }
+}

@@ -5,3 +5,6 @@ dist/
 !.env.example
 *.tar.gz
 test-results/
+.wrangler/
+.dev.vars
+.dev.vars.*

@@ -28,6 +28,18 @@ GitHub Pages โดยทั่วไปเป็นเว็บสาธาร�
 
 ## เปิด AI จริง
 
+### สร้าง Worker จาก GitHub
+
+เลือก repository นี้ใน Cloudflare Workers แล้วกรอก:
+
+- Worker name: `baan-kid-tutor-beta`
+- Production branch: `main`
+- Root directory: `/` (ราก repository)
+- Build command: `npm run build`
+- Deploy command: `npx wrangler deploy`
+
+ไฟล์ `wrangler.jsonc` กำหนด entrypoint เป็น `dist/server/index.js` และปิด AI ไว้ก่อน deploy แรกยังเป็นโหมดสาธิต ต้องตั้ง authentication สำหรับ Cloudflare ก่อนเปิด AI จริง ระบบ owner header เดิมเป็นของ Sites ไม่ใช่ระบบยืนยันตัวตนสำหรับ Cloudflare แบบ standalone
+
 เก็บโค้ดบน GitHub ได้ แต่ backend ต้องอยู่บนบริการที่รัน server ได้ เช่น Cloudflare Workers หรือโฮสต์ที่มี Node.js คง API key ไว้ฝั่ง server และมีการยืนยันตัวตน/โควตาก่อนเปิดรับผู้ใช้
 
 เบื้องต้นยังใช้ Sites ส่วนตัวที่เปิดไว้เดิมได้: https://baan-kid-math-tutor-beta.stoutburl64.chatgpt.site
