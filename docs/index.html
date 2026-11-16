@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="th" data-host="github-pages"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#496654"><meta name="description" content="บ้านคิด — พื้นที่ฝึกคณิตศาสตร์ ป.4–5 เขียน คิด และเรียนรู้ทีละก้าว"><title>บ้านคิด · ห้องเรียนคณิตศาสตร์</title><link rel="stylesheet" href="./style.css"></head>
+<body>
+<aside class="sidebar">
+  <a class="brand" href="./" aria-label="บ้านคิด หน้าหลัก"><span class="brand-mark">บ<span>+</span></span><span>บ้านคิด<small>พื้นที่เล็ก ๆ ของนักคิด</small></span></a>
+  <div class="sidebar-label">ห้องเรียนของเรา</div>
+  <button class="nav active" id="learnNav"><span>▦</span> ฝึกคณิตศาสตร์ <span class="nav-arrow">↗</span></button>
+  <button class="nav" id="historyNav"><span>◷</span> สมุดความก้าวหน้า</button>
+  <div class="lesson-menu"><div class="sidebar-label">เลือกเรื่องที่อยากฝึก</div>
+    <button class="topic active" data-topic="multiply"><span>×</span> การคูณ <small>01</small></button>
+    <button class="topic" data-topic="divide"><span>÷</span> การหาร <small>02</small></button>
+    <button class="topic" data-topic="fraction"><span>½</span> เศษส่วน <small>03</small></button>
+    <button class="topic" data-topic="decimal"><span>.0</span> ทศนิยม <small>04</small></button>
+    <button class="topic" data-topic="word"><span>≋</span> โจทย์ปัญหา <small>05</small></button>
+  </div>
+  <div class="small-note"><span class="sprout">✳</span><strong>ไม่ต้องรีบก็เก่งขึ้นได้</strong><p>ทุกวิธีคิดมีคุณค่า<br>ลองผิด แล้วค่อยลองใหม่ด้วยกัน</p></div>
+  <button class="nav settings-nav" id="settingsBtn"><span>⚙</span> ตั้งค่าสำหรับผู้ปกครอง <span class="beta">BETA</span></button>
+</aside>
+<main>
+  <header class="topbar"><span class="breadcrumb">ห้องเรียน <span>/</span> คณิตศาสตร์</span><div class="top-actions"><span class="mode-pill" id="modePill"><i></i> โหมดสาธิต</span><button class="avatar" id="avatar" aria-label="เปิดตั้งค่า">ค</button></div></header>
+  <div class="page-content" id="learnView">
+    <section class="greeting"><div><div class="eyebrow">A LITTLE THINKING, EVERY DAY</div><h1>วันนี้ มาคิดไปด้วยกัน <span>✳</span></h1><p>หยิบปากกา แล้วเริ่มจากก้าวเล็ก ๆ ที่ทำได้เลย</p></div><div class="grade-switch" aria-label="ระดับชั้น"><button data-grade="4" class="active">ป.4</button><button data-grade="5">ป.5</button></div></section>
+    <section class="session-strip"><div><span class="sun">☀</span><span><strong>ห้องฝึกของนักคิด</strong><small>ค่อย ๆ คิด ไม่จับเวลา</small></span></div><div class="session-progress"><span id="sessionLabel">วันนี้สำเร็จแล้ว 0 ข้อ</span><div class="dots" id="progressDots"><i></i><i></i><i></i><i></i><i></i></div></div><span class="session-star">✦</span></section>
+    <div class="workspace">
+      <section class="exercise card">
+        <div class="exercise-meta"><span class="topic-badge" id="topicBadge">× การคูณ</span><label class="difficulty">ระดับ <select id="level" aria-label="ความยาก"><option value="1">เริ่มต้น</option><option value="2">ฝึกคล่อง</option><option value="3">ท้าทาย</option></select></label></div>
+        <div class="question-label">ลองแก้โจทย์ข้อนี้ดูนะ <span id="questionNumber">ข้อที่ 01</span></div>
+        <h2 id="question">24 × 6 = ?</h2><p class="question-sub">เขียนวิธีคิดได้เต็มที่ ไม่จำเป็นต้องทำเหมือนใคร</p>
+        <div class="board-top"><span><i class="ink-dot"></i> กระดานความคิด</span><label class="auto-label"><input type="checkbox" id="autoCheck"> ตรวจอัตโนมัติ <span id="autoLabel">AI</span></label></div>
+        <div class="board-wrap"><canvas id="board" width="1200" height="680" aria-label="กระดานเขียนวิธีทำด้วยปากกาหรือนิ้ว"></canvas><div class="board-placeholder" id="boardPlaceholder"><span>✎</span>เริ่มเขียนตรงนี้ได้เลย<small>ใช้ปากกาหรือนิ้วเขียนวิธีคิดของเรา</small></div><div id="boardState" class="board-state">พร้อมให้ลองคิด</div></div>
+        <div class="toolbar"><div class="tools"><button class="tool active" id="pen" title="ปากกา" aria-label="ปากกา">✎</button><button class="tool" id="eraser" title="ยางลบ" aria-label="ยางลบ">▱</button><span class="divider"></span><button class="color active" data-color="#344c40" aria-label="หมึกสีเขียว" title="เขียว"></button><button class="color blue" data-color="#496ea0" aria-label="หมึกสีน้ำเงิน" title="น้ำเงิน"></button><button class="color orange" data-color="#cf784d" aria-label="หมึกสีส้ม" title="ส้ม"></button><label class="width-label">ขนาด <input id="penWidth" type="range" min="2" max="10" value="4" aria-label="ขนาดปากกา"></label></div><div><button class="tool" id="undo" title="ย้อนกลับ" aria-label="ย้อนกลับ">↶</button><button class="text-btn" id="clear">ล้างกระดาน</button></div></div>
+        <div class="answer-row"><label for="answer">คำตอบของเรา <small id="answerFormat">พิมพ์คำตอบเพื่อให้ระบบตรวจได้ทันที</small></label><div class="answer-input"><input id="answer" type="text" inputmode="decimal" placeholder="เช่น 144" autocomplete="off" maxlength="60"><span id="answerUnit"></span></div></div>
+        <div class="exercise-bottom"><button class="hint-btn" id="hintBtn">☼ ขอคำใบ้</button><div><button class="secondary-btn" id="nextBtn">ข้อต่อไป →</button><button class="primary-btn" id="checkBtn">ตรวจคำตอบ <span>↗</span></button></div></div>
+        <div id="result" class="result hidden" role="status"></div>
+      </section>
+      <aside class="coach-column">
+        <section class="coach card"><div class="coach-heading"><span>เพื่อนช่วยคิดของเรา</span><span class="live-label" id="coachMode">DEMO</span></div><div class="mascot"><div class="mascot-orbit"></div><div class="mascot-body"><span class="eye left"></span><span class="eye right"></span><span class="smile"></span><span class="cheek a"></span><span class="cheek b"></span></div><span class="spark one">✦</span><span class="spark two">+</span></div><h3>สวัสดี เราคือครูคิด <span>✳</span></h3><p class="coach-intro">ผู้ช่วย AI ที่คอยคิดไปด้วยกัน<br>ถามได้ ลองได้ ผิดได้เสมอ</p>
+        <button id="voiceBtn" class="voice-btn"><span>♩</span> คุยกับครูคิด <span class="voice-bars">▂▆▃</span></button><div class="voice-controls hidden" id="voiceControls"><button id="muteBtn">ปิดไมค์</button><button id="stopSpeechBtn">หยุดเสียง</button></div><p class="voice-caption" id="voiceCaption">โหมดสาธิต · ลองฟังคำใบ้จากเสียงของเครื่อง</p>
+        <div class="coach-message"><div class="message-from"><span class="mini-face">••</span> ครูคิด <small id="messageTime">พร้อมช่วยเสมอ</small></div><p id="coachMessage" aria-live="polite">เริ่มจากสิ่งที่รู้ก่อนนะ ลองเขียนวิธีคิดบนกระดาน หรือกดขอคำใบ้ได้เลย</p></div><div id="transcription" class="transcription hidden"></div>
+        <form class="chat-form" id="chatForm"><input id="chatInput" placeholder="ถามครูคิด เช่น เริ่มยังไงดี" aria-label="คำถามถึงครูคิด" maxlength="300"><button aria-label="ส่งคำถาม">↑</button></form><p class="ai-note" id="aiNote">สาธิตคำใบ้สำเร็จรูป · ยังไม่อ่านลายมือ</p></section>
+        <section class="tip-card"><div class="tip-icon">☼</div><div><span class="eyebrow">เคล็ดลับเล็ก ๆ</span><h4 id="tipTitle">แยกจำนวน ช่วยให้คิดง่ายขึ้น</h4><p id="tipText">เช่น 24 × 6 ลองแยกเป็น<br>(20 × 6) + (4 × 6)</p><div id="visual" class="math-visual"></div></div></section>
+        <div class="privacy-note"><span>♧</span><p>ประวัติการฝึกเก็บเฉพาะในเครื่องนี้<br>ภาพและเสียงจะส่งเมื่อเปิดโหมด AI เท่านั้น</p></div>
+      </aside>
+    </div>
+    <footer>บ้านคิด <span>·</span> ทุกก้าวเล็ก ๆ คือการเรียนรู้ <span class="footer-right">MATH TUTOR / BETA 0.1</span></footer>
+  </div>
+  <section class="page-content hidden" id="historyView"><div class="eyebrow">YOUR LITTLE STEPS</div><h1>สมุดความก้าวหน้า</h1><p class="muted">ผลการฝึกในเบราว์เซอร์เครื่องนี้ · ไม่เก็บภาพกระดานหรือเสียง</p><div class="stats" id="stats"></div><div class="history-list card" id="historyList"></div><button id="deleteHistory" class="secondary-btn">ลบประวัติในเครื่อง</button><button id="backLearn" class="primary-btn">กลับไปฝึก →</button></section>
+</main>
+<dialog id="settings"><form method="dialog" class="dialog-head"><div><span class="eyebrow">PARENT CORNER</span><h2>ตั้งค่าห้องเรียน</h2></div><button class="close-btn" aria-label="ปิด">×</button></form><div class="settings-body"><div class="setting-notice">รุ่น beta สำหรับผู้ปกครองทดลอง<br><small>ใช้ตัวอย่างลายมือและเสียงของผู้ใหญ่ก่อนนำไปใช้กับเด็กจริง</small></div><h3>การเชื่อมต่อ AI</h3><p id="connectionStatus">กำลังตรวจสอบเซิร์ฟเวอร์…</p><label class="consent"><input id="adultConsent" type="checkbox"><span>ฉันเป็นผู้ใหญ่และกำลังทดลองด้วยข้อมูลของผู้ใหญ่หรือข้อมูลจำลองเท่านั้น</span></label><p class="muted">AI จริงต้องตั้ง OPENAI_API_KEY และเปิด AI_ADULT_TEST_ENABLED ที่เซิร์ฟเวอร์ ไม่ต้องใส่ key ลงในหน้าเว็บนี้</p><div class="settings-detail"><strong>สาธิต</strong><span>โจทย์ กระดาน ตรวจคำตอบที่พิมพ์ และคำใบ้ · ไม่ส่งไป OpenAI</span><strong>AI จริง</strong><span>อ่านภาพกระดาน และสนทนาเสียงผ่าน Realtime API · มีค่าใช้งาน</span></div><label class="setting-row"><span>อ่านคำใบ้ด้วยเสียงของเครื่อง</span><input id="readAloud" type="checkbox"></label><label class="setting-row"><span>ปรับความยากตามผลการฝึก</span><input id="adaptive" type="checkbox" checked></label><p class="muted">เมื่อทำถูกด้วยตนเอง 3 ข้อติด จะเพิ่มระดับ การใช้คำใบ้ไม่นับเป็นทำได้ด้วยตนเอง</p><hr><h3>ข้อมูลและความเป็นส่วนตัว</h3><p class="muted">โหมด AI ส่งภาพกระดานและเสียงให้ OpenAI ประวัติผลการฝึกอยู่ในเครื่องเท่านั้น ยังไม่รองรับการใช้งานกับข้อมูลส่วนบุคคลเด็ก ต้องจัดการเงื่อนไขผู้ปกครองและ Zero Data Retention ก่อนเปิดใช้งานจริง</p><a href="https://developers.openai.com/api/docs/guides/safety-checks/under-18-api-guidance" target="_blank" rel="noreferrer">อ่านแนวทาง OpenAI สำหรับผู้เยาว์ ↗</a><button type="button" id="saveSettings" class="primary-btn full">บันทึกและเริ่มทดลอง</button></div></dialog>
+<div id="toast" class="toast hidden" role="status"></div><audio id="remoteAudio" autoplay></audio><script type="module" src="./app.js"></script>
+</body></html>
