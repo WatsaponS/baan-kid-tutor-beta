@@ -1,7 +1,9 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {makeProblem} from '../src/math.js';
-import worker from '../dist/server/index.js';
+import rawWorker from '../dist/server/index.js';
+const accessContext={access:{getIdentity:async()=>({email:'owner@example.test'})}};
+const worker={fetch:(request,env,ctx=accessContext)=>rawWorker.fetch(request,env,ctx)};
 const base='https://tutor.example';
 const request=(path,body={},origin=base,actor='test')=>new Request(base+path,{method:'POST',headers:{Origin:origin,'Content-Type':'application/json','oai-authenticated-user-id':actor},body:JSON.stringify(body)});
 const env={OPENAI_API_KEY:'fake-test-only',AI_ADULT_TEST_ENABLED:'true'};
@@ -11,7 +13,21 @@ test('demo is default and never exposes a configured secret',async()=>{
 });
 test('rejects cross-origin and anonymous paid calls',async()=>{
  assert.equal((await worker.fetch(request('/api/review',{},'https://other.example'),env)).status,403);
- const r=new Request(base+'/api/review',{method:'POST',headers:{Origin:base,'Content-Type':'application/json'},body:'{}'});assert.equal((await worker.fetch(r,env)).status,401);
+ const r=new Request(base+'/api/review',{method:'POST',headers:{Origin:base,'Content-Type':'application/json'},body:'{}'});assert.equal((await worker.fetch(r,env,{})).status,401);
+});
+test('spoofed identity headers and local flag on a public URL cannot authenticate',async()=>{
+ const spoof=request('/api/review',{});
+ assert.equal((await rawWorker.fetch(spoof,env,{})).status,401);
+ assert.equal((await rawWorker.fetch(request('/api/review',{}),{...env,LOCAL_DEV:'true'},{})).status,401);
+ const invalid={access:{getIdentity:async()=>{throw Error('unavailable');}}};
+ assert.equal((await rawWorker.fetch(request('/api/review',{}),env,invalid)).status,401);
+ const cfg=await(await rawWorker.fetch(new Request(base+'/api/config'),env,{})).json();
+ assert.equal(cfg.mode,'demo');assert.equal(cfg.accessReady,false);
+ const ready=await(await worker.fetch(new Request(base+'/api/config'),env)).json();assert.equal(ready.mode,'adult-test');assert.equal(ready.accessReady,true);
+});
+test('local development bypass is restricted to loopback',async()=>{
+ const req=new Request('http://127.0.0.1:3000/api/review',{method:'POST',headers:{Origin:'http://127.0.0.1:3000','Content-Type':'application/json'},body:JSON.stringify({problem:makeProblem()})});
+ assert.equal((await rawWorker.fetch(req,{LOCAL_DEV:'true'},{})).status,503);
 });
 test('review uses trusted server answer, propagates uncertain reads, and handles API failure',async()=>{
  const realFetch=globalThis.fetch;const p=makeProblem(4,'multiply',1,33);let sent;

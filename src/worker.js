@@ -5,6 +5,17 @@ const windows=new Map();
 const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','Permissions-Policy':'microphone=(self), camera=()'};
 function json(data,status=200){return new Response(JSON.stringify(data),{status,headers:{...headers,'Content-Type':'application/json; charset=utf-8'}});}
 function enabled(env){return Boolean(env.OPENAI_API_KEY)&&env.AI_ADULT_TEST_ENABLED==='true';}
+// ctx.access is supplied by Cloudflare after Access authentication, never by HTTP headers.
+async function authenticatedActor(request,env,ctx){
+  const url=new URL(request.url);
+  if(env.LOCAL_DEV==='true'&&['127.0.0.1','localhost','[::1]'].includes(url.hostname))return 'local';
+  if(!ctx?.access?.getIdentity)return null;
+  try{
+    const identity=await ctx.access.getIdentity();
+    const id=identity?.user_uuid||identity?.email;
+    return typeof id==='string'&&id.trim()?id:null;
+  }catch{return null;}
+}
 function problemFrom(b){
   const p=b.problem;
   if(!p||![4,5].includes(p.grade)||!['multiply','divide','fraction','decimal','word'].includes(p.topic)||![1,2,3].includes(p.level)||!Number.isInteger(p.seed)||p.seed<0||p.seed>4294967295)throw Error('BAD_INPUT');
@@ -20,18 +31,20 @@ async function upstream(url,env,body,extra={}){
   if(!response.ok) {await response.text();throw Error(response.status===429?'RATE_LIMIT':'UPSTREAM');}
   return response;
 }
-export default {async fetch(request,env={}){
+export default {async fetch(request,env={},ctx={}){
   const url=new URL(request.url),path=url.pathname;
-  if(request.method==='GET'&&path==='/api/config')return json({mode:enabled(env)?'adult-test':'demo',hasKey:Boolean(env.OPENAI_API_KEY),adultTestEnabled:env.AI_ADULT_TEST_ENABLED==='true',visionModel:env.OPENAI_VISION_MODEL||'gpt-4.1-mini',voiceModel:env.OPENAI_REALTIME_MODEL||'gpt-realtime-2.1-mini'});
+  if(request.method==='GET'&&path==='/api/config'){
+    const accessReady=Boolean(await authenticatedActor(request,env,ctx));
+    return json({mode:enabled(env)&&accessReady?'adult-test':'demo',hasKey:Boolean(env.OPENAI_API_KEY),accessReady,adultTestEnabled:env.AI_ADULT_TEST_ENABLED==='true',visionModel:env.OPENAI_VISION_MODEL||'gpt-4.1-mini',voiceModel:env.OPENAI_REALTIME_MODEL||'gpt-realtime-2.1-mini'});
+  }
   if(request.method==='GET'&&ASSETS[path]){
     const [body,type]=ASSETS[path];return new Response(body,{headers:{...headers,'Content-Type':type,'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://api.openai.com; media-src 'self' blob:; object-src 'none'; base-uri 'self'"}});
   }
   if(request.method!=='POST'||!['/api/review','/api/voice'].includes(path))return json({error:'ไม่พบหน้าที่ต้องการ'},404);
   const origin=request.headers.get('Origin');
   if(origin!==url.origin)return json({error:'ไม่อนุญาตคำขอจากเว็บไซต์อื่น'},403);
-  // Hosted beta is owner-private; do not expose paid endpoints on a public site.
-  if(env.LOCAL_DEV!=='true'&&!request.headers.get('oai-authenticated-user-id'))return json({error:'ต้องลงชื่อเข้าใช้เจ้าของ beta ก่อน'},401);
-  const actor=request.headers.get('oai-authenticated-user-id')||'local';
+  const actor=await authenticatedActor(request,env,ctx);
+  if(!actor)return json({error:'กรุณาเข้าสู่ระบบผ่าน Cloudflare Access ก่อนใช้ AI'},401);
   const now=Date.now();if(windows.size>500)for(const [k,v]of windows)if(now-v.start>60000)windows.delete(k);
   const k=actor+path;let slot=windows.get(k);if(!slot||now-slot.start>60000){slot={start:now,count:0};windows.set(k,slot);}
   if(++slot.count>(path==='/api/voice'?3:12))return json({error:'พักสักครู่ แล้วลองใหม่ในหนึ่งนาทีนะครับ'},429);

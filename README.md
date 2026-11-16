@@ -38,7 +38,7 @@ OPENAI_VISION_MODEL=gpt-4.1-mini
 OPENAI_REALTIME_MODEL=gpt-realtime-2.1-mini
 ```
 
-สำหรับ Sites ตั้งค่าชื่อตัวแปรเดียวกันเป็น runtime variables โดย OPENAI_API_KEY ต้องเป็น secret แล้ว deploy เวอร์ชันใหม่เพื่อใช้ค่าใหม่ จากนั้นเปิดตั้งค่าผู้ปกครองในหน้าเว็บและยืนยันว่าใช้ข้อมูลผู้ใหญ่/ข้อมูลจำลอง (การยืนยันนี้อยู่เฉพาะแท็บ ไม่เก็บข้ามการเปิดหน้า)
+สำหรับ Cloudflare Workers ตั้งชื่อตัวแปรเดียวกันที่ Runtime variables and secrets โดย OPENAI_API_KEY ต้องเป็น Secret เปิด Cloudflare Access แบบ All traffic ก่อน backend รุ่นนี้ตรวจสิทธิ์จาก `ctx.access.getIdentity()` ไม่ใช้ Sites identity headers หลัง deploy เปิด `/api/config` ตรวจ hasKey และ accessReady ก่อนเปิด AI_ADULT_TEST_ENABLED=true จากนั้นเปิดตั้งค่าผู้ปกครองในหน้าเว็บและยืนยันว่าใช้ข้อมูลผู้ใหญ่/ข้อมูลจำลอง (การยืนยันนี้อยู่เฉพาะแท็บ ไม่เก็บข้ามการเปิดหน้า)
 
 - `/api/review`: ส่งภาพกระดานไป Responses API แบบ structured output, `store:false` ให้ AI อ่านและให้คำใบ้ แล้วเซิร์ฟเวอร์ตรวจคำตอบกับโจทย์ที่สร้างใหม่จาก seed ไม่เชื่อ answer ที่ client ส่ง ผลอ่านคำตอบต้องให้ผู้ใช้ยืนยันก่อนบันทึกคะแนน
 - ตรวจอัตโนมัติ: รอหยุดเขียน 1.8 วินาที เว้นอย่างน้อย 7 วินาทีระหว่างการส่ง จำกัด 50 ครั้งต่อการเปิดหน้า ยกเลิก/ทิ้งผลที่กระดานเปลี่ยน

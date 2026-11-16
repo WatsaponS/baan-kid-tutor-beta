@@ -5,7 +5,5 @@
   "compatibility_date": "2026-11-16",
   "workers_dev": true,
   "preview_urls": false,
-  "vars": {
-    "AI_ADULT_TEST_ENABLED": "false"
-  }
+  "keep_vars": true
 }
