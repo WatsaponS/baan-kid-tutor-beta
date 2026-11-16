@@ -4,9 +4,20 @@ const staticDemo=document.documentElement.dataset.host==='github-pages';
 const symbols={multiply:'×',divide:'÷',fraction:'½',decimal:'.0',word:'≋'};
 let config={mode:'demo',hasKey:false},grade=4,topic='multiply',level=1,problem,number=0,hintIndex=0,solved=false,attempted=new Set(),revision=0,strokes=[],current=null,color='#344c40',tool='pen',penSeen=0,autoTimer,reviewAbort,reviewBusy=false,lastReview=0,aiChecks=0;
 let history=[];try{const h=JSON.parse(localStorage.getItem('baankid-history')||'[]');if(Array.isArray(h))history=h.filter(x=>x&&typeof x.title==='string'&&typeof x.correct==='boolean'&&Number.isFinite(x.at)).slice(-300);}catch{}
-let prefs={readAloud:false,adaptive:true};try{Object.assign(prefs,JSON.parse(localStorage.getItem('baankid-prefs')||'{}'));}catch{}
+let prefs={readAloud:false,adaptive:true,voiceQuality:'quality',microphoneMode:'tablet'};try{Object.assign(prefs,JSON.parse(localStorage.getItem('baankid-prefs')||'{}'));}catch{}
 let adultConsent=false,toastTimer,voice=null,voiceConnecting=false,voiceGeneration=0,ttsEnabled=prefs.readAloud;
 const canvas=$('board'),ctx=canvas.getContext('2d');
+function addVoicePreferences(){
+  const block=document.createElement('div');block.className='voice-preferences';
+  const title=document.createElement('h3');title.textContent='ภาษาไทยและคุณภาพเสียง';block.append(title);
+  for(const [id,label,options]of [['voiceQuality','โมเดลครูเสียง',[['quality','คุณภาพ · รุ่นเต็ม'],['economy','ประหยัด · Mini']]],['microphoneMode','ลักษณะไมโครโฟน',[['tablet','ไมค์แท็บเล็ต / ไมค์ในเครื่อง'],['headset','หูฟังที่มีไมค์ใกล้ปาก']]]]){
+    const row=document.createElement('label');row.className='setting-row';row.htmlFor=id;const span=document.createElement('span');span.textContent=label;const select=document.createElement('select');select.id=id;for(const [value,text]of options)select.append(new Option(text,value));row.append(span,select);block.append(row);
+  }
+  const note=document.createElement('p');note.className='muted';note.textContent='โหมดคุณภาพใช้เครดิตเสียงมากกว่า Mini มีค่าถอดเสียงเพิ่ม ทั้งสองโหมดจะรอให้พูดจบ และแสดงข้อความถอดเสียงไทยเพื่อช่วยตรวจความเข้าใจ';block.append(note);
+  const parent=document.querySelector('.settings-body');parent.insertBefore(block,parent.querySelector('.setting-row'));
+  const heard=document.createElement('div');heard.id='heardSpeech';heard.className='heard-speech';heard.setAttribute('aria-live','polite');heard.textContent='ข้อความถอดเสียงไทยจะแสดงที่นี่ · อาจคลาดเคลื่อนจากเสียงจริง';document.querySelector('.audio-tools').append(heard);
+}
+addVoicePreferences();
 function persist(){try{localStorage.setItem('baankid-history',JSON.stringify(history.slice(-300)));}catch{toast('พื้นที่เก็บข้อมูลเต็ม ประวัติรอบนี้จะอยู่จนกว่าจะปิดหน้า');}}
 function toast(text){$('toast').textContent=text;$('toast').classList.remove('hidden');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.add('hidden'),4500);}
 function aiReady(){return config.mode==='adult-test'&&adultConsent;}
@@ -92,9 +103,9 @@ async function startVoice(){
   let stream,pc;
   try{
     const mic=$('micSelect').value;
-    stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,...(mic?{deviceId:{exact:mic}}:{})}});
+    stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:{ideal:1},...(mic?{deviceId:{exact:mic}}:{})}});
     if(generation!==voiceGeneration){stream.getTracks().forEach(t=>t.stop());return;}
-    pc=new RTCPeerConnection();const dc=pc.createDataChannel('oai-events');const v={pc,dc,stream,ready:false,responding:false,pendingResponse:false,cancelRequested:false,nextPrompt:null,boardItem:null,transcript:'',muted:false,timeout:null,connectTimer:null};voice=v;voiceLog('microphone granted');startMeter(v);listMics();
+    pc=new RTCPeerConnection();const dc=pc.createDataChannel('oai-events');const v={pc,dc,stream,ready:false,responding:false,pendingResponse:false,cancelRequested:false,nextPrompt:null,boardItem:null,transcript:'',inputItem:null,inputTranscript:'',muted:false,timeout:null,connectTimer:null};voice=v;voiceLog('microphone granted · '+(prefs.voiceQuality==='economy'?'Mini':'quality')+' · th');$('heardSpeech').textContent='พร้อมฟังภาษาไทย · รอให้พูดจบก่อนตอบ';startMeter(v);listMics();
     v.connectTimer=setTimeout(()=>{if(voice===v){stopVoice('เชื่อมต่อหมดเวลา ลองเปิดใหม่ครับ');}},45000);
     pc.ontrack=e=>{if(voice!==v)return;$('remoteAudio').srcObject=e.streams[0]||new MediaStream([e.track]);voiceLog('remote audio track');playRemote();};
     stream.getTracks().forEach(t=>pc.addTrack(t,stream));
@@ -106,7 +117,10 @@ async function startVoice(){
       if(m.type==='session.created'&&!v.ready){v.ready=true;clearTimeout(v.connectTimer);$('retryReplyBtn').disabled=false;voiceAsk('ทักทายสั้น ๆ บอกว่าเป็นครู AI แล้วชวนลองทำโจทย์นี้ ไม่เฉลย');}
       if(m.type==='input_audio_buffer.speech_started'){stopReply();$('voiceCaption').textContent='กำลังฟังเราอยู่…';}
       if(m.type==='input_audio_buffer.speech_stopped')$('voiceCaption').textContent='ได้ยินแล้ว กำลังรับเสียงให้ครบ…';
-      if(m.type==='input_audio_buffer.committed')voiceAsk('ผู้เรียนพูดจบและรับเสียงครบแล้ว ตอบคำถามล่าสุดโดยใช้ภาพกระดานนี้เท่านั้น');
+      if(m.type==='input_audio_buffer.committed'){v.inputItem=m.item_id||null;v.inputTranscript='';voiceAsk('ผู้เรียนพูดจบและรับเสียงครบแล้ว ตอบคำถามจากเสียงไทยล่าสุดของผู้เรียน ใช้ภาพกระดานนี้ประกอบ หากฟังไม่ชัดให้ถามยืนยันเฉพาะจุด ไม่เริ่มอธิบายใหม่ทั้งหมด');}
+      if(m.type==='conversation.item.input_audio_transcription.delta'&&(!v.inputItem||m.item_id===v.inputItem)){v.inputTranscript+=m.delta||'';$('heardSpeech').textContent='ถอดเสียงไทย: '+v.inputTranscript;}
+      if(m.type==='conversation.item.input_audio_transcription.completed'&&(!v.inputItem||m.item_id===v.inputItem)){$('heardSpeech').textContent='ถอดเสียงล่าสุด: '+(m.transcript||'(ไม่พบคำพูดชัดเจน)')+'\nหากไม่ตรง พิมพ์แก้ไขในช่องถามครูคิดได้';}
+      if(m.type==='conversation.item.input_audio_transcription.failed')$('heardSpeech').textContent='ยังถอดเสียงไม่ได้ แต่ครูยังรับเสียงโดยตรงได้ ลองพูดใหม่หรือพิมพ์คำถาม';
       if(m.type==='response.created'){v.responding=true;v.pendingResponse=false;v.transcript='';if(v.cancelRequested)sendEvent({type:'response.cancel'});}
       if(['response.output_audio_transcript.delta','response.audio_transcript.delta'].includes(m.type)){clearTimeout(v.replyTimer);v.transcript+=m.delta;coach(v.transcript,false);}
       if(m.type==='output_audio_buffer.started'){clearTimeout(v.replyTimer);$('voiceCaption').textContent='ครูคิดกำลังพูด…';playRemote();}
@@ -116,7 +130,7 @@ async function startVoice(){
     const offer=await pc.createOffer();await pc.setLocalDescription(offer);
     await new Promise(resolve=>{if(pc.iceGatheringState==='complete')return resolve();const timer=setTimeout(resolve,2500);pc.addEventListener('icegatheringstatechange',()=>{if(pc.iceGatheringState==='complete'){clearTimeout(timer);resolve();}});});
     if(voice!==v)return;
-    const r=await fetch('/api/voice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sdp:pc.localDescription.sdp,problem:spec(),adultConsent}),signal:AbortSignal.timeout(40000)});
+    const r=await fetch('/api/voice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sdp:pc.localDescription.sdp,problem:spec(),adultConsent,voiceQuality:prefs.voiceQuality==='economy'?'economy':'quality',microphoneMode:prefs.microphoneMode==='headset'?'headset':'tablet'}),signal:AbortSignal.timeout(40000)});
     if(!r.ok){const data=await r.json();throw Error(data.error||'เชื่อมต่อเสียงไม่สำเร็จ');}
     const answer=await r.text();if(voice!==v)return;await pc.setRemoteDescription({type:'answer',sdp:answer});
   }catch(e){stream?.getTracks().forEach(t=>t.stop());pc?.close();stopVoice('ยังเปิดเสียงไม่ได้');toast(e.name==='NotAllowedError'?'กรุณาอนุญาตใช้ไมโครโฟนในเบราว์เซอร์':e.message||'เชื่อมต่อเสียงไม่ได้');}
@@ -144,9 +158,9 @@ $('muteBtn').onclick=()=>{if(!voice)return;voice.muted=!voice.muted;voice.stream
 $('chatForm').onsubmit=e=>{e.preventDefault();const text=$('chatInput').value.trim();if(!text)return;$('chatInput').value='';hintIndex++;if(voice?.dc.readyState==='open'){voiceAsk('คำถามของผู้เรียน: '+text);}else if(aiReady()){reviewBoard(false,text);}else{coach('ตอนนี้เป็นโหมดสาธิต ลองใช้แนวทางนี้ก่อนนะ: '+problem.hints[Math.min(hintIndex-1,1)]);toast('คำตอบนี้เป็นคำใบ้สำเร็จรูป ยังไม่ได้ส่งคำถามให้ AI');}};
 $('historyNav').onclick=historyView;$('learnNav').onclick=learnView;$('backLearn').onclick=learnView;
 $('deleteHistory').onclick=()=>{if(confirm('ลบประวัติการฝึกทั้งหมดในเบราว์เซอร์นี้หรือไม่?')){history=[];persist();updateProgress();historyView();}};
-function openSettings(){$('readAloud').checked=prefs.readAloud;$('adaptive').checked=prefs.adaptive;$('adultConsent').checked=adultConsent;$('settings').showModal();}
+function openSettings(){$('readAloud').checked=prefs.readAloud;$('adaptive').checked=prefs.adaptive;$('adultConsent').checked=adultConsent;$('voiceQuality').value=prefs.voiceQuality==='economy'?'economy':'quality';$('microphoneMode').value=prefs.microphoneMode==='headset'?'headset':'tablet';$('settings').showModal();}
 $('settingsBtn').onclick=openSettings;$('avatar').onclick=openSettings;
-$('saveSettings').onclick=()=>{const nextConsent=$('adultConsent').checked;if(adultConsent!==nextConsent){stopVoice();invalidate();}adultConsent=nextConsent;prefs={readAloud:$('readAloud').checked,adaptive:$('adaptive').checked};ttsEnabled=prefs.readAloud;try{localStorage.setItem('baankid-prefs',JSON.stringify(prefs));}catch{}refreshMode();$('settings').close();toast(aiReady()?'เปิดโหมด AI สำหรับผู้ใหญ่ทดลองแล้ว':'บันทึกแล้ว · ใช้โหมดสาธิต');};
+$('saveSettings').onclick=()=>{const nextConsent=$('adultConsent').checked;if(adultConsent!==nextConsent||prefs.voiceQuality!==$('voiceQuality').value||prefs.microphoneMode!==$('microphoneMode').value){stopVoice();invalidate();}adultConsent=nextConsent;prefs={readAloud:$('readAloud').checked,adaptive:$('adaptive').checked,voiceQuality:$('voiceQuality').value,microphoneMode:$('microphoneMode').value};ttsEnabled=prefs.readAloud;try{localStorage.setItem('baankid-prefs',JSON.stringify(prefs));}catch{}refreshMode();$('settings').close();toast(aiReady()?'เปิดโหมด AI สำหรับผู้ใหญ่ทดลองแล้ว':'บันทึกแล้ว · ใช้โหมดสาธิต');};
 document.addEventListener('visibilitychange',()=>{if(document.hidden){stopVoice('พักการคุยเมื่อออกจากหน้า');clearTimeout(autoTimer);reviewAbort?.abort();if('speechSynthesis'in window)speechSynthesis.cancel();}});
 window.addEventListener('pagehide',()=>stopVoice());
 newProblem();updateProgress();refreshMode();loadConfig();

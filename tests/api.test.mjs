@@ -46,7 +46,9 @@ test('voice creates the server-configured session without giving a key to the br
  try{
   globalThis.fetch=async(url,opts)=>{assert.equal(url,'https://api.openai.com/v1/realtime/calls');session=JSON.parse(opts.body.get('session'));return new Response('v=0\r\nmock-answer',{headers:{'Content-Type':'application/sdp'}});};
   const r=await worker.fetch(request('/api/voice',{problem:makeProblem(),adultConsent:true,sdp:'v=0\r\ntest'}),env);
-  assert.equal(r.status,200);assert.equal(session.audio.input.turn_detection.create_response,false);assert.equal(session.model,'gpt-realtime-2.1-mini');assert.ok(!(await r.text()).includes(env.OPENAI_API_KEY));
+  assert.equal(r.status,200);assert.equal(session.audio.input.turn_detection.create_response,false);assert.equal(session.model,'gpt-realtime-2.1');assert.equal(session.audio.input.turn_detection.type,'semantic_vad');assert.equal(session.audio.input.turn_detection.eagerness,'low');assert.equal(session.audio.input.transcription.language,'th');assert.equal(session.audio.input.noise_reduction.type,'far_field');assert.match(session.instructions,/ภาษาไทย/);assert.ok(!(await r.text()).includes(env.OPENAI_API_KEY));
+  const economy=await worker.fetch(request('/api/voice',{problem:makeProblem(),adultConsent:true,sdp:'v=0\r\ntest',voiceQuality:'economy',microphoneMode:'headset'}),env);
+  assert.equal(economy.status,200);assert.equal(session.model,'gpt-realtime-2.1-mini');assert.equal(session.audio.input.noise_reduction.type,'near_field');
  }finally{globalThis.fetch=realFetch;}
 });
 test('rejects external image URLs and invalid problem specs before forwarding',async()=>{

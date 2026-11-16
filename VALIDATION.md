@@ -10,3 +10,5 @@
 ## Voice repair
 
 `node tests/voice-browser.mjs` passes with a mock WebRTC transport and Chromium's synthetic microphone. It verifies waiting for session.created before greeting, requesting a reply only after input_audio_buffer.committed, queuing a replacement reply until cancellation is acknowledged, short board-item identifiers, visible API error codes, microphone selection, and closing meter/media resources. This is not a live OpenAI or physical microphone test.
+
+Thai voice revision: API mock checks full/economy model selection, semantic turn detection, Thai transcription configuration, and near/far microphone modes. Browser tests check sending the selected modes, displaying Thai transcript events, ignoring delayed transcripts for older turns, and switching to economy/headset. No Thai speech-recognition accuracy benchmark or ChatGPT-equivalence claim has been established.

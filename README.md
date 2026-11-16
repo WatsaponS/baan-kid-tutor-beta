@@ -35,7 +35,7 @@ npm start
 OPENAI_API_KEY=your-key
 AI_ADULT_TEST_ENABLED=true
 OPENAI_VISION_MODEL=gpt-4.1-mini
-OPENAI_REALTIME_MODEL=gpt-realtime-2.1-mini
+OPENAI_REALTIME_MODEL=gpt-realtime-2.1
 ```
 
 สำหรับ Cloudflare Workers ตั้งชื่อตัวแปรเดียวกันที่ Runtime variables and secrets โดย OPENAI_API_KEY ต้องเป็น Secret เปิด Cloudflare Access แบบ All traffic ก่อน backend รุ่นนี้ตรวจสิทธิ์จาก `ctx.access.getIdentity()` ไม่ใช้ Sites identity headers หลัง deploy เปิด `/api/config` ตรวจ hasKey และ accessReady ก่อนเปิด AI_ADULT_TEST_ENABLED=true จากนั้นเปิดตั้งค่าผู้ปกครองในหน้าเว็บและยืนยันว่าใช้ข้อมูลผู้ใหญ่/ข้อมูลจำลอง (การยืนยันนี้อยู่เฉพาะแท็บ ไม่เก็บข้ามการเปิดหน้า)
@@ -45,6 +45,8 @@ OPENAI_REALTIME_MODEL=gpt-realtime-2.1-mini
 - `/api/voice`: แลก SDP ฝั่งเซิร์ฟเวอร์กับ Realtime API ผ่าน WebRTC ไม่ส่ง API key ให้ browser เปิดเสียงจากการกดปุ่มเท่านั้น ส่งภาพล่าสุดเมื่อผู้ใช้พูดจบ แล้วจึงขอเสียงตอบกลับ ปิดสายเมื่อซ่อนหน้า/ครบ 10 นาที
 - เสียงสนทนาเป็นคำแนะนำ ไม่ให้คะแนน คะแนนใช้ตัวตรวจและการยืนยันของผู้ใช้
 - โหมดเสียงมีตัวเลือกไมค์ แถบวัดเสียง ปุ่มทดสอบลำโพง ปุ่มเล่นเสียงเมื่อเบราว์เซอร์บล็อก และสถานะการเชื่อมต่อ ไม่บันทึกเสียงหรือ token ลงในสถานะนี้ รอ session.created ก่อนทักทาย และรอ input_audio_buffer.committed ก่อนขอคำตอบจากเสียง
+- การฟังไทย: โหมดคุณภาพใช้ `gpt-realtime-2.1` เป็นค่าเริ่มต้น (เปลี่ยนได้ด้วย OPENAI_REALTIME_MODEL) และโหมดประหยัดใช้ `gpt-realtime-2.1-mini` ใช้ semantic_vad แบบ eagerness=low แทนการตัดจบด้วยช่วงเงียบคงที่ มี noise reduction แบบ far_field สำหรับแท็บเล็ต / near_field สำหรับหูฟัง และข้อความถอดเสียงด้วย `gpt-realtime-whisper` language=th ค่าถอดเสียงคิดเพิ่ม ข้อความถอดเสียงเป็นผลจากโมเดลอีกชุด ไม่ใช่หลักฐานว่าระบบสนทนาได้ยินตรงกันทุกคำ โมเดลสนทนารับเสียงโดยตรง
+- โหมดคุณภาพมีราคาต่อ audio token ที่ไม่ใช่ cache ประมาณ 3.2 เท่าของ Mini ตามราคาที่ตรวจ 2026-11-16 (ยังไม่รวมข้อความ ภาพ ประวัติ และค่าถอดเสียง) เลือกโหมดได้ในตั้งค่าผู้ปกครอง และต้องจบสาย/เปิดใหม่เมื่อเปลี่ยนโหมด
 - จัดการ API ล้มเหลว ไม่มีเครดิต ไม่อนุญาตไมค์ ไม่มีเสียงเครื่อง ภาพอ่านไม่ชัด และผลตอบช้า
 
 ## ขอบเขต beta
