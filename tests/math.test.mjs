@@ -7,6 +7,7 @@ test('answers accept equivalent fractions, decimals and Thai numerals without ex
  assert.equal(gradeAnswer({answer:'1.5'},'1 1/2'),'correct');
  assert.equal(gradeAnswer({answer:'0'},''),'unclear');
  assert.equal(parseNumber('1/0'),null);assert.equal(parseNumber('2+2'),null);assert.equal(parseNumber('alert(1)'),null);
+ assert.equal(gradeAnswer({answer:'165/28'},'5 25/28'),'correct');assert.equal(gradeAnswer({answer:'91/15'},'6 1/15'),'correct');assert.equal(gradeAnswer({answer:'209/24'},'8 17/24'),'correct');assert.equal(gradeAnswer({answer:'25/33'},'25/33'),'correct');
 });
 test('fraction skills guarantee the selected operation and denominators, including Grade 5 defaults',()=>{
  for(const skill of Object.keys(FRACTION_SKILLS))for(const grade of [4,5])for(const level of [1,2,3])for(let seed=0;seed<250;seed++){
@@ -17,12 +18,13 @@ test('fraction skills guarantee the selected operation and denominators, includi
   if(skill==='auto'&&grade===5&&level<3){assert.notEqual(n[1],n[3]);assert.match(p.title,/[+−]/);}
   if(['multiAdd','multiSubtract','multiMixed'].includes(skill)){assert.ok(n.length/2>=4&&n.length/2<=5);const ops=p.title.match(/[+−]/g);assert.equal(ops.length,n.length/2-1);if(skill==='multiAdd')assert.ok(ops.every(o=>o==='+'));if(skill==='multiSubtract')assert.ok(ops.every(o=>o==='−'));if(skill==='multiMixed'){assert.ok(ops.includes('+'));assert.ok(ops.includes('−'));}let balance=n[0]/n[1];for(let i=1;i<n.length/2;i++){balance+=(ops[i-1]==='+'?1:-1)*n[2*i]/n[2*i+1];assert.ok(balance>=-1e-9);}assert.ok(new Set(n.filter((_,i)=>i%2===1)).size>1);}
   assert.equal(p.id,makeProblem(grade,'fraction',level,seed,skill).id);
+  if(skill.startsWith('mixed')){assert.equal(p.mixedTerms.length,2);for(const t of p.mixedTerms){assert.ok(Number.isInteger(t.whole)&&t.whole>=1);assert.ok(t.n>0&&t.n<t.d);}assert.match(p.title,/\d+ \d+\/\d+/);}
  }
  const a=makeProblem(5,'fraction',1,1,'addUnlike'),b=makeProblem(5,'fraction',1,1,'subtractUnlike');assert.notEqual(a.id,b.id);
 });
 // Independent expression parser: validates the displayed problem, not generator internals.
 function calculate(text){
- const tokens=text.replaceAll(',','').replaceAll('×','*').replaceAll('÷','/').replaceAll('−','-').match(/\d+(?:\.\d+)?|[()+*/-]/g);let i=0;
+ const tokens=text.replaceAll(',','').replace(/(\d+)\s+(\d+)\/(\d+)/g,'($1+$2/$3)').replaceAll('×','*').replaceAll('÷','/').replaceAll('−','-').match(/\d+(?:\.\d+)?|[()+*/-]/g);let i=0;
  function atom(){if(tokens[i]==='('){i++;const n=sum();assert.equal(tokens[i++],')');return n;}return Number(tokens[i++]);}
  function product(){let n=atom();while(['*','/'].includes(tokens[i])){const op=tokens[i++],r=atom();n=op==='*'?n*r:n/r;}return n;}
  function sum(){let n=product();while(['+','-'].includes(tokens[i])){const op=tokens[i++],r=product();n=op==='+'?n+r:n-r;}return n;}

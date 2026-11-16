@@ -52,10 +52,21 @@ function newProblem(){
   number++;hintIndex=0;solved=false;attempted.clear();paperPages=[[]];pageIndex=0;strokes=paperPages[0];current=null;draw();updatePaper();$('answer').value='';$('result').className='result hidden';$('transcription').classList.add('hidden');$('question').textContent=problem.title;$('question').classList.toggle('word-question',['word','measurement','geometry','time','data'].includes(topic));$('questionNumber').textContent=`ข้อที่ ${String(number).padStart(2,'0')}`;$('topicBadge').textContent=symbols[topic]+' '+TOPICS[topic];$('answerUnit').textContent=problem.unit;$('answer').placeholder=topic==='fraction'?'เช่น 3/4':'เช่น 144';$('answer').inputMode=topic==='fraction'?'text':'decimal';$('boardState').textContent='พร้อมให้ลองคิด';renderProblemVisual();
   document.querySelectorAll('[data-topic]').forEach(b=>b.classList.toggle('active',b.dataset.topic===topic));
   lessonSelect.value=topic;
+  renderMixedQuestion();
   coach('เริ่มจากสิ่งที่รู้ก่อนนะ ลองเขียนวิธีคิดบนกระดาน หรือกดขอคำใบ้ได้เลย',false);updateTip();
   if(voice?.dc.readyState==='open')sendEvent({type:'conversation.item.create',item:{type:'message',role:'user',content:[{type:'input_text',text:'เปลี่ยนโจทย์แล้ว ภาพและคำตอบเก่าห้ามใช้กับข้อนี้ โจทย์ใหม่: '+problem.title}]}});
 }
 function updateTip(){const titles={addition:'บวกตามค่าประจำหลัก',subtraction:'ตรวจการลบด้วยการบวก',multiply:'แยกจำนวน ช่วยให้คิดง่ายขึ้น',divide:'การคูณช่วยตรวจการหาร',mixed:'ลำดับการคำนวณสำคัญ',fraction:'ทุกส่วนต้องมีขนาดเท่ากัน',decimal:'จัดจุดให้ตรงกัน',measurement:'เปลี่ยนหน่วยให้เหมือนกัน',geometry:'แยกรอบรูป พื้นที่ และปริมาตร',time:'หนึ่งชั่วโมงมีหกสิบนาที',data:'อ่านค่าก่อนเลือกวิธีคำนวณ',word:'วาดกลุ่ม ช่วยให้เห็นโจทย์'};$('tipTitle').textContent=titles[topic];$('tipText').textContent=problem.hints[1];$('visual').replaceChildren();if(problem.visual?.type==='fraction'){const v=problem.visual;for(let i=0;i<v.d;i++){const el=document.createElement('i');el.className=i<v.a?'a':i<v.a+v.b?'b':'';el.title=`ส่วนที่ ${i+1} จาก ${v.d}`;$('visual').append(el);}}}
+function renderMixedQuestion(){
+  const question=$('question');question.classList.toggle('mixed-question',Boolean(problem.mixedTerms));question.setAttribute('aria-label',problem.title);
+  $('answerFormat').textContent=topic==='fraction'?'พิมพ์จำนวนคละ เช่น 2 1/3 หรือเศษส่วน เช่น 7/3 ได้':'พิมพ์คำตอบเพื่อให้ระบบตรวจได้ทันที';
+  if(!problem.mixedTerms)return;$('answer').placeholder='เช่น 2 1/3';question.replaceChildren();
+  for(const [i,t]of problem.mixedTerms.entries()){
+    if(i){const op=document.createElement('span');op.className='mixed-op';op.textContent=problem.mixedOperator;op.setAttribute('aria-hidden','true');question.append(op);}
+    const number=document.createElement('span');number.className='mixed-number';number.setAttribute('aria-hidden','true');const whole=document.createElement('span');whole.textContent=t.whole;const f=document.createElement('span');f.className='stacked-fraction';const n=document.createElement('span'),d=document.createElement('span');n.textContent=t.n;d.textContent=t.d;f.append(n,d);number.append(whole,f);question.append(number);
+  }
+  const tail=document.createElement('span');tail.textContent='= ?';tail.setAttribute('aria-hidden','true');question.append(tail);
+}
 function renderProblemVisual(){
   const box=$('problemVisual');box.replaceChildren();const v=problem.visual;box.classList.toggle('hidden',!v||v.type==='fraction');if(!v||v.type==='fraction')return;
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 360 160');svg.setAttribute('role','img');svg.setAttribute('aria-label',v.type==='bars'?'แผนภูมิหนังสือของสามห้อง':'ภาพประกอบ ขนาดตามป้าย ไม่วัดจากภาพ');

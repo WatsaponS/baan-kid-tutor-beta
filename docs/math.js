@@ -1,12 +1,12 @@
 export const TOPICS = { addition:'การบวก', subtraction:'การลบ', multiply:'การคูณ', divide:'การหาร', mixed:'คำนวณระคน', fraction:'เศษส่วน', decimal:'ทศนิยม', measurement:'การวัดและหน่วย', geometry:'พื้นที่และรูปทรง', time:'เวลา', data:'อ่านข้อมูล', word:'โจทย์ปัญหา' };
-export const FRACTION_SKILLS={auto:'คละตามระดับชั้น',addUnlike:'บวก · ส่วนไม่เท่ากัน',subtractUnlike:'ลบ · ส่วนไม่เท่ากัน',multiAdd:'บวกหลายขั้น · 4–5 จำนวน',multiSubtract:'ลบหลายขั้น · 4–5 จำนวน',multiMixed:'บวก–ลบสลับ · 4–5 จำนวน',addSame:'บวก · ส่วนเท่ากัน',subtractSame:'ลบ · ส่วนเท่ากัน',multiply:'คูณเศษส่วน',divide:'หารเศษส่วน'};
+export const FRACTION_SKILLS={auto:'คละตามระดับชั้น',mixedAdd:'บวกจำนวนคละ',mixedSubtract:'ลบจำนวนคละ',mixedMultiply:'คูณจำนวนคละ',mixedDivide:'หารจำนวนคละ',addUnlike:'บวก · ส่วนไม่เท่ากัน',subtractUnlike:'ลบ · ส่วนไม่เท่ากัน',multiAdd:'บวกหลายขั้น · 4–5 จำนวน',multiSubtract:'ลบหลายขั้น · 4–5 จำนวน',multiMixed:'บวก–ลบสลับ · 4–5 จำนวน',addSame:'บวก · ส่วนเท่ากัน',subtractSame:'ลบ · ส่วนเท่ากัน',multiply:'คูณเศษส่วน',divide:'หารเศษส่วน'};
 export function gcd(a,b){while(b){[a,b]=[b,a%b];}return Math.abs(a);}
 export function fraction(n,d){const g=gcd(n,d);return d/g===1?String(n/g):`${n/g}/${d/g}`;}
 export function makeProblem(grade=4,topic='multiply',level=1,seed=1,fractionSkill='auto'){
   grade=Number(grade)===5?5:4; topic=TOPICS[topic]?topic:'multiply'; level=Math.max(1,Math.min(3,Number(level)||1));
   fractionSkill=Object.hasOwn(FRACTION_SKILLS,fractionSkill)?fractionSkill:'auto';
   let state=Number(seed)>>>0; const rand=(lo,hi)=>{state=(Math.imul(1664525,state)+1013904223)>>>0;return lo+state%(hi-lo+1);};
-  let a,b,answer,title,hints,solution,visual=null,unit='';
+  let a,b,answer,title,hints,solution,visual=null,unit='',mixedTerms=null,mixedOperator=null;
   if(topic==='addition'||topic==='subtraction'){
     const max=level===1?999:level===2?99999:grade===5?9999999:999999;a=rand(101,max);b=rand(11,max);
     if(topic==='subtraction'&&a<b)[a,b]=[b,a];const add=topic==='addition';answer=String(add?a+b:a-b);title=`${a.toLocaleString('en-US')} ${add?'+':'−'} ${b.toLocaleString('en-US')} = ?`;
@@ -19,13 +19,25 @@ export function makeProblem(grade=4,topic='multiply',level=1,seed=1,fractionSkil
     b=rand(2,level===1?9:15);const q=rand(grade===4?12:21,level===1?49:129);a=b*q;answer=String(q);title=`${a} ÷ ${b} = ?`;
     hints=[`เรากำลังแบ่ง ${a} ออกเป็นกลุ่ม กลุ่มละ ${b} ลองคิดว่ามีกี่กลุ่ม`,`ใช้การคูณย้อนกลับ: ${b} คูณจำนวนใดแล้วได้ ${a}?`];solution=`${a} ÷ ${b} = ${q} ตรวจย้อนกลับ: ${q} × ${b} = ${a}`;
   }else if(topic==='fraction'){
-    const choices=grade===5?(level===3?['addUnlike','subtractUnlike','multiply','divide','multiAdd','multiSubtract','multiMixed']:['addUnlike','subtractUnlike']):level===1?['addSame','subtractSame']:['addUnlike','subtractUnlike'];
+    const choices=grade===5?(level===3?['addUnlike','subtractUnlike','multiply','divide','multiAdd','multiSubtract','multiMixed','mixedAdd','mixedSubtract','mixedMultiply','mixedDivide']:['addUnlike','subtractUnlike']):level===1?['addSame','subtractSame']:['addUnlike','subtractUnlike'];
     const skill=fractionSkill==='auto'?choices[(Number(seed)>>>0)%choices.length]:fractionSkill;
     const pairs=level===1?[[2,3],[3,4],[4,6],[3,5]]:level===2?[[4,9],[6,8],[5,12],[8,12]]:[[9,12],[8,15],[12,18],[15,20]];
     let [d,e]=pairs[rand(0,pairs.length-1)];if(skill.endsWith('Same'))d=e=rand(3,level===1?9:16);
     a=rand(1,d-1);b=rand(1,e-1);while(gcd(a,d)!==1)a=a%(d-1)+1;while(gcd(b,e)!==1)b=b%(e-1)+1;
     const subtract=skill.startsWith('subtract');if(subtract&&a*e<b*d){[a,b]=[b,a];[d,e]=[e,d];}
-    if(['multiAdd','multiSubtract','multiMixed'].includes(skill)){
+    if(['mixedAdd','mixedSubtract','mixedMultiply','mixedDivide'].includes(skill)){
+      let w1=rand(1,level===1?3:level===2?7:12),w2=rand(1,level===1?3:level===2?7:12);
+      if(skill==='mixedSubtract'&&(w1*d+a)*e<(w2*e+b)*d){[w1,w2]=[w2,w1];[a,b]=[b,a];[d,e]=[e,d];}
+      const n1=w1*d+a,n2=w2*e+b;let numerator,denominator;
+      mixedOperator={mixedAdd:'+',mixedSubtract:'−',mixedMultiply:'×',mixedDivide:'÷'}[skill];mixedTerms=[{whole:w1,n:a,d},{whole:w2,n:b,d:e}];title=`${w1} ${a}/${d} ${mixedOperator} ${w2} ${b}/${e} = ?`;
+      const conversion=`${w1} ${a}/${d} = (${w1} × ${d} + ${a})/${d} = ${n1}/${d}; ${w2} ${b}/${e} = ${n2}/${e}`;
+      hints=['จำนวนคละคือจำนวนนับบวกเศษส่วน แปลงเป็นเศษเกินโดยนำจำนวนนับคูณตัวส่วนแล้วบวกตัวเศษ',conversion];
+      let operation;
+      if(skill==='mixedMultiply'){numerator=n1*n2;denominator=d*e;operation=`${n1}/${d} × ${n2}/${e} = ${numerator}/${denominator}`;hints.push('หลังแปลงเป็นเศษเกิน คูณเศษกับเศษและส่วนกับส่วน แล้วตัดทอน');}
+      else if(skill==='mixedDivide'){numerator=n1*e;denominator=d*n2;operation=`${n1}/${d} ÷ (${n2}/${e}) = ${n1}/${d} × ${e}/${n2} = ${numerator}/${denominator}`;hints.push('หารด้วยเศษส่วน ให้คูณด้วยส่วนกลับของตัวหาร ห้ามกลับตัวตั้ง');}
+      else {denominator=d/gcd(d,e)*e;const left=n1*(denominator/d),right=n2*(denominator/e);numerator=skill==='mixedAdd'?left+right:left-right;operation=`${left}/${denominator} ${mixedOperator} ${right}/${denominator} = ${numerator}/${denominator}`;hints.push(`ทำตัวส่วนร่วมเป็น ${denominator} ก่อน แล้วจึง${skill==='mixedAdd'?'บวก':'ลบ'}ตัวเศษ`);}
+      answer=fraction(numerator,denominator);const whole=Math.floor(numerator/denominator),remainder=numerator%denominator;solution=conversion+' → '+operation+' = '+answer+(whole&&remainder?` หรือจำนวนคละ ${whole} ${fraction(remainder,denominator)}`:'');
+    }else if(['multiAdd','multiSubtract','multiMixed'].includes(skill)){
       const count=level===1?4:level===2?4+(Number(seed)>>>0)%2:5;
       const pool=level===1?[2,3,4,6]:level===2?[3,4,6,8,12]:[4,6,8,9,12,18];
       const terms=Array.from({length:count},(_,i)=>{const den=pool[((Number(seed)>>>0)+i)%pool.length];return {n:rand(1,den-1),d:den};});
@@ -71,7 +83,7 @@ export function makeProblem(grade=4,topic='multiply',level=1,seed=1,fractionSkil
     if(level===2){const price=rand(3,12);title=`มีเงิน ${a*b} บาท ซื้อดินสอ ${a} แท่ง ราคาแท่งละ ${price} บาท เหลือเงินกี่บาท?`;unit='บาท';answer=String(a*b-a*price);hints=['หาค่าดินสอทั้งหมดก่อน แล้วหักออกจากเงินที่มี',`ค่าดินสอ = ${a} × ${price} บาท`];solution=`${a*b} − (${a} × ${price}) = ${a*b} − ${a*price} = ${answer} บาท`;}
     if(level===3){const groups=rand(2,8),extra=rand(1,9);title=`มีขนม ${groups} กล่อง กล่องละ ${b} ชิ้น ได้เพิ่มอีก ${extra*groups} ชิ้น แบ่งให้เด็ก ${groups} คนเท่า ๆ กัน ได้คนละกี่ชิ้น?`;unit='ชิ้น';answer=String(b+extra);hints=['หาขนมทั้งหมดทั้งที่มีและได้เพิ่ม แล้วค่อยแบ่งเท่า ๆ กัน',`เขียนเป็น (${groups} × ${b} + ${extra*groups}) ÷ ${groups}`];solution=`(${groups*b} + ${extra*groups}) ÷ ${groups} = ${answer} ชิ้น` ;}
   }
-  return {grade,topic,level,seed:Number(seed)>>>0,fractionSkill,title,answer,hints,solution,visual,unit,id:`${grade}-${topic}-${level}-${Number(seed)>>>0}${topic==='fraction'&&fractionSkill!=='auto'?'-'+fractionSkill:''}`};
+  return {grade,topic,level,seed:Number(seed)>>>0,fractionSkill,title,answer,hints,solution,visual,unit,mixedTerms,mixedOperator,id:`${grade}-${topic}-${level}-${Number(seed)>>>0}${topic==='fraction'&&fractionSkill!=='auto'?'-'+fractionSkill:''}`};
 }
 export function parseNumber(value){
   if(typeof value!=='string'&&typeof value!=='number')return null;
