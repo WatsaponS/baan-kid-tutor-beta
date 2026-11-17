@@ -9,6 +9,8 @@ try{
  page.on('pageerror',e=>errors.push(e.message));
  await page.goto('http://127.0.0.1:3000');
  await page.getByText('วันนี้ มาคิดไปด้วยกัน').waitFor();
+ assert.equal(await page.locator('#lessonSelect').inputValue(),'fraction');
+ await page.locator('[data-topic="multiply"]').click();
  assert.equal(await page.locator('#localMath').count(),0,'structured ink feature is paused');
  assert.equal(await page.locator('#autoCheck').isDisabled(),true);
  const title=await page.locator('#question').textContent();const nums=title.match(/\d+/g).map(Number);const answer=nums[0]*nums[1];

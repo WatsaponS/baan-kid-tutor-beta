@@ -15,6 +15,7 @@ try {
     if (/\/api\/(review|tutor|voice)/.test(r.url())) paid.push(r.url());
   });
   await page.goto("http://127.0.0.1:3000");
+  await page.locator('[data-topic="multiply"]').click();
   await page.locator("#localMath>summary").click();
   // Independently authored synthetic pen paths, not captured human handwriting.
   const samples = {

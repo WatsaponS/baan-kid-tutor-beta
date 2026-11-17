@@ -18,6 +18,8 @@ try{
  const errors=[],apiCalls=[];page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.url().includes('/api/'))apiCalls.push(r.url());});
  await page.goto(`http://127.0.0.1:${server.address().port}${prefix}`);
  await page.locator('#question').waitFor();
+ assert.equal(await page.locator('#lessonSelect').inputValue(),'fraction');
+ await page.locator('[data-topic="multiply"]').click();
  const nums=(await page.locator('#question').textContent()).match(/\d+/g).map(Number);
  await page.locator('#answer').fill(String(nums[0]*nums[1]));await page.locator('#checkBtn').click();assert.match(await page.locator('#result').textContent(),/คำตอบถูกแล้ว/);
  await page.locator('#settingsBtn').click();assert.match(await page.locator('#connectionStatus').textContent(),/GitHub Pages/);assert.equal(await page.locator('#adultConsent').isDisabled(),true);await page.locator('#saveSettings').click();
