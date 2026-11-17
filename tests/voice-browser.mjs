@@ -4,6 +4,8 @@ const browser=await chromium.launch({headless:true,args:['--use-fake-ui-for-medi
 try{
  const context=await browser.newContext({permissions:['microphone'],viewport:{width:1100,height:1000}});
  const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ // Explicitly enable the paused panel only inside this retained-feature regression fixture.
+ await page.route('**/app.js',async r=>{const response=await r.fetch();await r.fulfill({response,body:(await response.text()).replace('const STRUCTURED_INK_ENABLED=false;','const STRUCTURED_INK_ENABLED=true;')});});
  await page.addInitScript(()=>{
   const state={sent:[],ready:false,dc:null,hold:false,spoken:[]};window.rtcTest=state;
   window.SpeechSynthesisUtterance=class{constructor(text){this.text=text;}};

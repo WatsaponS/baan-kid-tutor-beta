@@ -8,6 +8,8 @@ try {
   });
   const errors = [],
     paid = [];
+  // This feature is paused in the product; exercise it only in the test fixture.
+  await page.route('**/app.js',async r=>{const response=await r.fetch();await r.fulfill({response,body:(await response.text()).replace('const STRUCTURED_INK_ENABLED=false;','const STRUCTURED_INK_ENABLED=true;')});});
   page.on("pageerror", (e) => errors.push(e.message));
   page.on("request", (r) => {
     if (/\/api\/(review|tutor|voice)/.test(r.url())) paid.push(r.url());

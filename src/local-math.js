@@ -488,7 +488,7 @@ export function mountLocalMath({
       const next = createVerifiedState({ ...c });
       next.validation = { status: layout.status, steps: [] };
       next.suggestedHint = strokes.length
-        ? "กระดานอิสระยังอ่านเลขไม่ได้แน่นอน ใช้ช่องเขียนจำนวนคละ หรือพิมพ์คำตอบเพื่อยืนยันนะ"
+        ? "กระดานอิสระยังอ่านเลขไม่ได้แน่นอน พิมพ์คำตอบเพื่อยืนยัน หรือกดอ่านภาพด้วย AI เมื่อต้องการนะ"
         : "เขียนวิธีทำก่อนนะ";
       log("layout", strokes, layout);
       publish(next);

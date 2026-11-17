@@ -5,6 +5,7 @@ import {mountLocalMath} from './local-math.js';
 import {validateSteps,thaiStepFeedback} from './math-step-validator.js';
 const $=id=>document.getElementById(id);
 const staticDemo=document.documentElement.dataset.host==='github-pages';
+const STRUCTURED_INK_ENABLED=false;
 const symbols={addition:'+',subtraction:'−',multiply:'×',divide:'÷',mixed:'( )',fraction:'½',decimal:'.0',measurement:'↔',geometry:'▱',time:'◷',data:'▥',word:'≋',proportion:'↗',percent:'%',parallel:'∥',volume:'▣'};
 const menu=document.querySelector('.lesson-menu');menu.querySelectorAll('[data-topic]').forEach(b=>b.remove());
 for(const [key,label]of Object.entries(TOPICS)){const button=document.createElement('button');button.className='topic';button.dataset.topic=key;button.title=label;button.setAttribute('aria-label',label);const icon=document.createElement('span');icon.textContent=symbols[key];button.append(icon,document.createTextNode(' '+label));menu.append(button);}
@@ -41,11 +42,12 @@ function spec(){return {grade:problem.grade,topic:problem.topic,level:problem.le
 function say(text){if(!ttsEnabled||voice)return;if(!('speechSynthesis'in window)){toast('เบราว์เซอร์นี้ไม่มีเสียงอ่าน ใช้ข้อความได้ครับ');return;}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='th-TH';u.rate=.88;const v=speechSynthesis.getVoices().find(v=>v.lang.startsWith('th'));if(v)u.voice=v;u.onerror=()=>toast('เสียงอ่านไม่พร้อม ใช้คำใบ้บนหน้าจอได้ครับ');speechSynthesis.speak(u);}
 function coach(text,speak=true){$('coachMessage').textContent=text;if(speak)say(text);}
 function showResult(text,status=''){const box=$('result');box.className='result '+status;box.textContent=text;}
+function reviewLocalBoard(){if(STRUCTURED_INK_ENABLED)return localMath?.reviewFreehand(strokes);const suggestedHint=strokes.length?'พิมพ์คำตอบเพื่อยืนยัน หรือกดอ่านภาพด้วย AI เมื่อต้องการนะ':'เขียนวิธีทำก่อนนะ';coach(suggestedHint,false);return {suggestedHint};}
 function refreshMode(){
   const live=aiReady();$('modePill').replaceChildren();const dot=document.createElement('i');$('modePill').append(dot,live?' AI · ผู้ใหญ่ทดลอง':' โหมดสาธิต');$('coachMode').textContent=live?'AI TEST':'DEMO';
   $('aiNote').textContent=live?'AI อาจอ่านผิด โปรดยืนยันสิ่งที่อ่านก่อนบันทึกผล':'สาธิตคำใบ้สำเร็จรูป · ยังไม่อ่านลายมือ';
   $('voiceCaption').textContent=live?'เปิดไมค์เพื่อคุยกับ AI · มีค่าใช้งาน API':'โหมดสาธิต · ลองฟังคำใบ้จากเสียงของเครื่อง';
-  $('autoCheck').disabled=false;$('autoLabel').textContent='ในเครื่อง';
+  $('autoCheck').disabled=!STRUCTURED_INK_ENABLED;$('autoCheck').closest('label').classList.toggle('hidden',!STRUCTURED_INK_ENABLED);if(!STRUCTURED_INK_ENABLED)$('autoCheck').checked=false;$('autoLabel').textContent='ในเครื่อง';
   $('connectionStatus').textContent=config.mode==='adult-test'?'เซิร์ฟเวอร์พร้อม · ยืนยันโหมดผู้ใหญ่ทดลองเพื่อเปิด AI':config.hasKey?'พบ API key แล้ว · ยังไม่ได้เปิด AI_ADULT_TEST_ENABLED':'ยังไม่มี API key · ใช้โหมดสาธิตได้ครบทั้งโจทย์และกระดาน';
 }
 async function loadConfig(){if(staticDemo){config={mode:'demo',hasKey:false};refreshMode();$('connectionStatus').textContent='GitHub Pages · โหมดสาธิต ไม่ส่งภาพหรือเสียงไป OpenAI การเปิด AI จริงต้องมี backend แยก';$('adultConsent').disabled=true;return;}try{const r=await fetch('/api/config');if(!r.ok)throw Error();config=await r.json();refreshMode();}catch{toast('ตรวจการเชื่อมต่อไม่ได้ ใช้โหมดสาธิตไปก่อนได้ครับ');}}
@@ -53,7 +55,7 @@ function todaySolved(){const day=new Date().toDateString();return new Set(histor
 function updateProgress(){const count=todaySolved();$('sessionLabel').textContent=`วันนี้สำเร็จแล้ว ${count} ข้อ`;$('progressDots').querySelectorAll('i').forEach((d,i)=>d.classList.toggle('done',i<Math.min(5,count)));}
 function record(correct,source){const key=String($('answer').value).trim()+'|'+correct+'|'+source;if(attempted.has(key)||solved)return;attempted.add(key);history.push({id:problem.id,title:problem.title,grade,topic,level,correct,skill:topic==='fraction'?fractionSkill:practiceSkill,helped:hintIndex>0,source,at:Date.now()});history=history.slice(-300);persist();if(correct)solved=true;updateProgress();}
 function stopReply(){cancelTutor();if(voice?.ready&&voice.dc.readyState==='open'){voice.nextPrompt=null;clearTimeout(voice.replyTimer);if((voice.responding||voice.pendingResponse)&&!voice.cancelRequested){voice.cancelRequested=true;sendEvent({type:'response.cancel'});}sendEvent({type:'output_audio_buffer.clear'});}$('remoteAudio').muted=true;}
-function changed(){revision++;clearTimeout(autoTimer);reviewAbort?.abort();stopReply();localMath?.reset();$('boardState').textContent='กำลังคิดและเขียน…';if($('autoCheck').checked)autoTimer=setTimeout(()=>{if(!current)localMath?.reviewFreehand(strokes);},1000);}
+function changed(){revision++;clearTimeout(autoTimer);reviewAbort?.abort();stopReply();localMath?.reset();$('boardState').textContent='กำลังคิดและเขียน…';if($('autoCheck').checked)autoTimer=setTimeout(()=>{if(!current)reviewLocalBoard();},1000);}
 function invalidate(){revision++;clearTimeout(autoTimer);reviewAbort?.abort();stopReply();$('result').classList.add('hidden');$('transcription').classList.add('hidden');}
 function newProblem(){
   localMath?.reset();
@@ -117,7 +119,7 @@ async function askTextTutor(question){
  catch(e){if(e.name!=='AbortError'&&rev===revision)showResult(e.message);}finally{clearTimeout(timer);}
 }
 async function reviewBoard(auto=false,question=''){
-  if(auto){if(!current)localMath?.reviewFreehand(strokes);return;}
+  if(auto){if(!current)reviewLocalBoard();return;}
   if(question.trim()&&aiReady()){await askTextTutor(question);return;}
   if(!aiReady()){if(!auto)showResult('โหมดสาธิตยังอ่านลายมือไม่ได้ครับ เขียนวิธีคิดบนกระดาน แล้วพิมพ์คำตอบในช่องด้านล่างเพื่อตรวจ');return;}
   if(current)return;
@@ -139,7 +141,7 @@ async function reviewBoard(auto=false,question=''){
   }catch(e){if(e.name!=='AbortError'&&rev===revision){$('boardState').textContent='ยังตรวจไม่ได้ ลองอีกครั้ง';if(auto){$('autoCheck').checked=false;toast('พักการตรวจอัตโนมัติ: '+e.message);}else showResult(e.message);}}
   finally{clearTimeout(timeout);reviewBusy=false;$('checkBtn').disabled=false;}
 }
-async function check(){clearTimeout(autoTimer);if((problem.answerKind&&problem.answerKind!=='number')||$('answer').value.trim()){typedCheck();return;}const state=localMath?.getState();if(state){coach(state.suggestedHint);showResult(state.suggestedHint,state.validation.status==='incorrect'?'incorrect':'');}else {const next=localMath?.reviewFreehand(strokes);if(next)showResult(next.suggestedHint);}}
+async function check(){clearTimeout(autoTimer);if((problem.answerKind&&problem.answerKind!=='number')||$('answer').value.trim()){typedCheck();return;}const state=localMath?.getState();if(state){coach(state.suggestedHint);showResult(state.suggestedHint,state.validation.status==='incorrect'?'incorrect':'');}else {const next=reviewLocalBoard();if(next)showResult(next.suggestedHint);}}
 function sendEvent(event){if(voice?.dc.readyState==='open')voice.dc.send(JSON.stringify(event));}
 function sendBoardContext(text='ภาพกระดานล่าสุด ใช้แทนภาพก่อนหน้า'){
   if(!voice||voice.dc.readyState!=='open')return false;
@@ -247,7 +249,7 @@ const paperStatus=document.createElement('p');paperStatus.className='paper-voice
 new MutationObserver(()=>{paperVoice.textContent=voice?'◼ จบการคุย':'♩ คุยกับครูคิด';paperVoice.disabled=$('voiceBtn').disabled;paperStatus.textContent=$('voiceCaption').textContent;}).observe($('voiceCaption'),{childList:true,subtree:true,characterData:true});
 document.querySelectorAll('[data-color]').forEach(b=>b.onclick=()=>{color=b.dataset.color;$('pen').click();document.querySelectorAll('[data-color]').forEach(v=>v.classList.toggle('active',v===b));});
 $('undo').onclick=()=>{current=null;strokes.pop();draw();changed();};$('clear').onclick=()=>{current=null;strokes=[];draw();changed();$('boardState').textContent='กระดานใหม่ พร้อมให้ลองคิด';};
-$('autoCheck').onchange=()=>{clearTimeout(autoTimer);if($('autoCheck').checked){toast('ตรวจในเครื่องหลังหยุดเขียน 1 วินาที ไม่เรียก API อัตโนมัติ');if(strokes.length)autoTimer=setTimeout(()=>{if(!current)localMath?.reviewFreehand(strokes);},1000);}};
+$('autoCheck').onchange=()=>{clearTimeout(autoTimer);if($('autoCheck').checked){toast('ตรวจในเครื่องหลังหยุดเขียน 1 วินาที ไม่เรียก API อัตโนมัติ');if(strokes.length)autoTimer=setTimeout(()=>{if(!current)reviewLocalBoard();},1000);}};
 $('voiceBtn').onclick=startVoice;$('stopSpeechBtn').onclick=stopReply;
 $('retryReplyBtn').onclick=()=>voiceAsk('ช่วยทักทายและอธิบายโจทย์ปัจจุบันสั้น ๆ โดยยังไม่เฉลย');
 $('resumeAudioBtn').onclick=playRemote;
@@ -263,7 +265,7 @@ $('saveSettings').onclick=()=>{const nextConsent=$('adultConsent').checked;if(ad
 document.addEventListener('visibilitychange',()=>{if(document.hidden){stopVoice('พักการคุยเมื่อออกจากหน้า');clearTimeout(autoTimer);reviewAbort?.abort();if('speechSynthesis'in window)speechSynthesis.cancel();}});
 window.addEventListener('pagehide',()=>stopVoice());
 localMath=mountLocalMath({host:document.querySelector('.board-top').parentElement,getContext:()=>({problem,revision,page:pageIndex}),onMutation:invalidate,onFeedback:state=>{coach(state.suggestedHint,false);if(voice?.ready){stopReply();sendBoardContext('Latest local verification state. Never override the deterministic result.');}$('boardState').textContent=state.validation.status==='needs_confirmation'?'รอยืนยันตัวเลข · ตรวจในเครื่อง':state.suggestedHint;},speak:text=>{if(!('speechSynthesis'in window)){toast('เครื่องนี้ไม่มีเสียงอ่าน ใช้ข้อความได้ครับ');return;}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='th-TH';const thai=speechSynthesis.getVoices().find(v=>v.lang.startsWith('th'));if(!thai){toast('ไม่พบเสียงภาษาไทยในเครื่อง ใช้คำแนะนำบนหน้าจอได้ครับ');return;}u.voice=thai;u.onerror=()=>toast('เสียงอ่านไม่พร้อม ใช้ข้อความได้ครับ');speechSynthesis.speak(u);}});
-document.querySelector('.board-top').before(localMath.element);
+if(STRUCTURED_INK_ENABLED)document.querySelector('.board-top').before(localMath.element);else localMath.element.remove();
 const cloudReview=document.createElement('button');cloudReview.type='button';cloudReview.id='cloudReview';cloudReview.className='secondary-btn';cloudReview.textContent='อ่านภาพด้วย AI · ใช้เครดิต API';cloudReview.onclick=()=>reviewBoard(false);document.querySelector('.board-top').after(cloudReview);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)localMath.pause();});
 newProblem();updateProgress();refreshMode();loadConfig();
