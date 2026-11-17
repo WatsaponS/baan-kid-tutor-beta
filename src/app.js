@@ -75,10 +75,21 @@ function newProblem(){
   if(voice?.dc.readyState==='open')sendEvent({type:'conversation.item.create',item:{type:'message',role:'user',content:[{type:'input_text',text:'เปลี่ยนโจทย์แล้ว ภาพและคำตอบเก่าห้ามใช้กับข้อนี้ โจทย์ใหม่: '+problem.title+' ข้อมูลรูปและกิจกรรม: '+JSON.stringify(publicProblemFacts(problem))}]}});
 }
 function updateTip(){const titles={addition:'บวกตามค่าประจำหลัก',subtraction:'ตรวจการลบด้วยการบวก',multiply:'แยกจำนวน ช่วยให้คิดง่ายขึ้น',divide:'การคูณช่วยตรวจการหาร',mixed:'ลำดับการคำนวณสำคัญ',fraction:'ทุกส่วนต้องมีขนาดเท่ากัน',decimal:'จัดจุดให้ตรงกัน',measurement:'เปลี่ยนหน่วยให้เหมือนกัน',geometry:'แยกรอบรูป พื้นที่ และปริมาตร',time:'หนึ่งชั่วโมงมีหกสิบนาที',data:'อ่านค่าก่อนเลือกวิธีคำนวณ',word:'วาดกลุ่ม ช่วยให้เห็นโจทย์'};$('tipTitle').textContent=titles[topic];$('tipText').textContent=problem.hints[1];$('visual').replaceChildren();if(problem.visual?.type==='fraction'){const v=problem.visual;for(let i=0;i<v.d;i++){const el=document.createElement('i');el.className=i<v.a?'a':i<v.a+v.b?'b':'';el.title=`ส่วนที่ ${i+1} จาก ${v.d}`;$('visual').append(el);}}}
+function renderFractionText(node,text){
+  node.replaceChildren();const pattern=/(?:(\d+)\s+)?(\d+)\s*\/\s*(\d+)/g;let start=0;
+  for(const match of text.matchAll(pattern)){
+    node.append(document.createTextNode(text.slice(start,match.index)));
+    const term=document.createElement('span');term.className='mixed-number';term.setAttribute('aria-hidden','true');
+    if(match[1]){const whole=document.createElement('span');whole.textContent=match[1];term.append(whole,document.createTextNode(' '));}
+    const fraction=document.createElement('span');fraction.className='stacked-fraction';const numerator=document.createElement('span'),denominator=document.createElement('span');numerator.textContent=match[2];denominator.textContent=match[3];fraction.append(numerator,document.createTextNode('\n'),denominator);term.append(fraction);node.append(term);start=match.index+match[0].length;
+  }
+  node.append(document.createTextNode(text.slice(start)));
+}
 function renderMixedQuestion(){
   const question=$('question');question.classList.toggle('mixed-question',Boolean(problem.mixedTerms));question.setAttribute('aria-label',problem.title);
   $('answerFormat').textContent=topic==='fraction'?'พิมพ์จำนวนคละ เช่น 2 1/3 หรือเศษส่วน เช่น 7/3 ได้':'พิมพ์คำตอบเพื่อให้ระบบตรวจได้ทันที';
-  if(!problem.mixedTerms)return;$('answer').placeholder='เช่น 2 1/3';question.replaceChildren();
+  question.classList.toggle('fraction-question',!problem.mixedTerms&&/\d+\s*\/\s*\d+/.test(problem.title));
+  if(!problem.mixedTerms){renderFractionText(question,problem.title);return;}$('answer').placeholder='เช่น 2 1/3';question.replaceChildren();
   for(const [i,t]of problem.mixedTerms.entries()){
     if(i){const op=document.createElement('span');op.className='mixed-op';op.textContent=problem.mixedOperator;op.setAttribute('aria-hidden','true');question.append(op);}
     const number=document.createElement('span');number.className='mixed-number';number.setAttribute('aria-hidden','true');const whole=document.createElement('span');whole.textContent=t.whole;const f=document.createElement('span');f.className='stacked-fraction';const n=document.createElement('span'),d=document.createElement('span');n.textContent=t.n;d.textContent=t.d;f.append(n,d);if(t.whole)number.append(whole);number.append(f);question.append(number);
