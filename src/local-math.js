@@ -201,7 +201,7 @@ export function mountLocalMath({
       const ctx = canvas.getContext("2d");
       const draw = () => {
         ctx.clearRect(0, 0, 100, 130);
-        ctx.strokeStyle = "#344c40";
+        ctx.strokeStyle = "#40334d";
         ctx.lineWidth = 5;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";

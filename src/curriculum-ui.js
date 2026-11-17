@@ -3,8 +3,8 @@ function node(tag,text,cls){const e=document.createElement(tag);if(text!==undefi
 function svgNode(tag,attrs={},text){const e=document.createElementNS(ns,tag);for(const [k,v]of Object.entries(attrs))e.setAttribute(k,String(v));if(text!==undefined)e.textContent=text;return e;}
 function svgRoot(label,w=600,h=300){const s=svgNode('svg',{viewBox:`0 0 ${w} ${h}`,role:'img','aria-label':label});return s;}
 function shape(s,tag,attrs,text){const e=svgNode(tag,attrs,text);s.append(e);return e;}
-function line(s,x1,y1,x2,y2,extra={}){return shape(s,'line',{x1,y1,x2,y2,stroke:'#486b55','stroke-width':2,...extra});}
-function label(s,x,y,text,extra={}){return shape(s,'text',{x,y,'font-size':14,fill:'#2e4035',...extra},text);}
+function line(s,x1,y1,x2,y2,extra={}){return shape(s,'line',{x1,y1,x2,y2,stroke:'#59486b','stroke-width':2,...extra});}
+function label(s,x,y,text,extra={}){return shape(s,'text',{x,y,'font-size':14,fill:'#372c42',...extra},text);}
 export function renderCurriculumTask(p,box,input,onChange){
  input.type='text';input.closest('.answer-input').classList.remove('hidden');
  if(!p.curriculumSkill)return;
@@ -33,8 +33,8 @@ export function renderDiagram(v,title){
  if(v.type==='chart')return v.build?null:chart(v,v.series,title);
  const s=svgRoot(title);
  if(v.type==='lines'){
-  if(v.mode==='perpendicular'){line(s,80,150,500,150);line(s,290,30,290,260);shape(s,'path',{d:'M290 130H310V150',fill:'none',stroke:'#7c8e64','stroke-width':2});label(s,320,135,'90°');}
-  else {line(s,60,80,530,80);line(s,60,220,530,220);label(s,460,70,'∥');label(s,460,210,'∥');if(v.mode==='distance'){line(s,210,80,210,220);shape(s,'path',{d:'M210 100H230V80',fill:'none',stroke:'#7c8e64'});label(s,230,155,v.distance+' ซม.');line(s,340,80,410,220,{'stroke-dasharray':'5 4',stroke:'#ac9270'});label(s,420,155,'เส้นเฉียง');}}
+  if(v.mode==='perpendicular'){line(s,80,150,500,150);line(s,290,30,290,260);shape(s,'path',{d:'M290 130H310V150',fill:'none',stroke:'#796191','stroke-width':2});label(s,320,135,'90°');}
+  else {line(s,60,80,530,80);line(s,60,220,530,220);label(s,460,70,'∥');label(s,460,210,'∥');if(v.mode==='distance'){line(s,210,80,210,220);shape(s,'path',{d:'M210 100H230V80',fill:'none',stroke:'#796191'});label(s,230,155,v.distance+' ซม.');line(s,340,80,410,220,{'stroke-dasharray':'5 4',stroke:'#ac9270'});label(s,420,155,'เส้นเฉียง');}}
  }else if(v.type==='angles'){
   const theta=v.angle*Math.PI/180,ax=250,ay=70,by=220,bx=ax+(by-ay)/Math.tan(theta),r=32;
   line(s,40,ay,560,ay);line(s,40,by,560,by);line(s,ax-55*Math.cos(theta),ay-55*Math.sin(theta),bx+55*Math.cos(theta),by+55*Math.sin(theta));label(s,500,ay-8,'∥');label(s,500,by-8,'∥');
@@ -43,20 +43,20 @@ export function renderDiagram(v,title){
  }else if(v.type==='polygon'){
   const b=v.base,h=v.height,offset=Math.sqrt((v.shape==='rhombus'?b:v.side)**2-h*h),scale=Math.min(380/(b+offset),160/h),x=70,y=220;
   const points=[[x,y],[x+b*scale,y],[x+(b+offset)*scale,y-h*scale],[x+offset*scale,y-h*scale]];
-  shape(s,'polygon',{points:points.map(p=>p.join(',')).join(' '),fill:'#edf3e6',stroke:'#567650','stroke-width':2});line(s,x+offset*scale,y,x+offset*scale,y-h*scale,{'stroke-dasharray':'4 4'});shape(s,'path',{d:`M${x+offset*scale} ${y-12}h12v12`,fill:'none',stroke:'#7c8e64'});label(s,x+b*scale/2,y+25,v.base+' ซม. (ฐาน)');label(s,x+offset*scale+10,y-h*scale/2,'สูง '+v.height+' ซม.');if(v.shape==='parallelogram')label(s,x+(b+offset/2)*scale+10,y-h*scale/2,'ด้าน '+v.side+' ซม.');
+  shape(s,'polygon',{points:points.map(p=>p.join(',')).join(' '),fill:'#ece6f3',stroke:'#634f77','stroke-width':2});line(s,x+offset*scale,y,x+offset*scale,y-h*scale,{'stroke-dasharray':'4 4'});shape(s,'path',{d:`M${x+offset*scale} ${y-12}h12v12`,fill:'none',stroke:'#796191'});label(s,x+b*scale/2,y+25,v.base+' ซม. (ฐาน)');label(s,x+offset*scale+10,y-h*scale/2,'สูง '+v.height+' ซม.');if(v.shape==='parallelogram')label(s,x+(b+offset/2)*scale+10,y-h*scale/2,'ด้าน '+v.side+' ซม.');
  }else if(v.type==='rectangle'){
-  const k=Math.min(350/v.a,180/v.b),x=100,y=230;shape(s,'rect',{x,y:y-v.b*k,width:v.a*k,height:v.b*k,fill:'#edf3e6',stroke:'#567650','stroke-width':2});label(s,x+v.a*k/2,y+25,v.a+' ซม.');label(s,15,y-v.b*k/2,v.b+' ซม.');
+  const k=Math.min(350/v.a,180/v.b),x=100,y=230;shape(s,'rect',{x,y:y-v.b*k,width:v.a*k,height:v.b*k,fill:'#ece6f3',stroke:'#634f77','stroke-width':2});label(s,x+v.a*k/2,y+25,v.a+' ซม.');label(s,15,y-v.b*k/2,v.b+' ซม.');
  }else if(v.type==='trapezoid'){
   const k=Math.min(360/v.base,170/v.height),x=100,y=240,W=v.base*k,H=v.height*k,T=v.top*k,left=x+(W-T)/2;
-  shape(s,'polygon',{points:[[x,y],[x+W,y],[left+T,y-H],[left,y-H]].map(p=>p.join(',')).join(' '),fill:'#edf3e6',stroke:'#567650','stroke-width':2});line(s,left,y,left,y-H,{'stroke-dasharray':'4 4'});label(s,x+W/2,y+24,v.base+' ซม.');label(s,left+T/2,y-H-12,v.top+' ซม.');label(s,left+8,y-H/2,'สูง '+v.height+' ซม.');
+  shape(s,'polygon',{points:[[x,y],[x+W,y],[left+T,y-H],[left,y-H]].map(p=>p.join(',')).join(' '),fill:'#ece6f3',stroke:'#634f77','stroke-width':2});line(s,left,y,left,y-H,{'stroke-dasharray':'4 4'});label(s,x+W/2,y+24,v.base+' ซม.');label(s,left+T/2,y-H-12,v.top+' ซม.');label(s,left+8,y-H/2,'สูง '+v.height+' ซม.');
  }else if(v.type==='composite'){
   const k=Math.min(340/v.width,180/v.height),x=90,y=240,W=v.width*k,H=v.height*k,CW=v.cutW*k,CH=v.cutH*k;
-  shape(s,'polygon',{points:[[x,y],[x+W,y],[x+W,y-H+CH],[x+W-CW,y-H+CH],[x+W-CW,y-H],[x,y-H]].map(p=>p.join(',')).join(' '),fill:'#edf3e6',stroke:'#567650','stroke-width':2});shape(s,'rect',{x:x+W-CW,y:y-H,width:CW,height:CH,fill:'#fff5e9',stroke:'#c89a69','stroke-dasharray':'5 4'});label(s,x+W/2,y+25,v.width+' ซม.');label(s,10,y-H/2,v.height+' ซม.');label(s,x+W-CW/2,y-H-10,v.cutW+' ซม.');label(s,x+W+8,y-H+CH/2,v.cutH+' ซม.');
+  shape(s,'polygon',{points:[[x,y],[x+W,y],[x+W,y-H+CH],[x+W-CW,y-H+CH],[x+W-CW,y-H],[x,y-H]].map(p=>p.join(',')).join(' '),fill:'#ece6f3',stroke:'#634f77','stroke-width':2});shape(s,'rect',{x:x+W-CW,y:y-H,width:CW,height:CH,fill:'#fff5e9',stroke:'#c89a69','stroke-dasharray':'5 4'});label(s,x+W/2,y+25,v.width+' ซม.');label(s,10,y-H/2,v.height+' ซม.');label(s,x+W-CW/2,y-H-10,v.cutW+' ซม.');label(s,x+W+8,y-H+CH/2,v.cutH+' ซม.');
  }else if(v.type==='cuboid'){
-  shape(s,'path',{d:'M130 110L200 50H440V200L370 260H130ZM130 110H370V260M370 110L440 50',fill:'#edf3e6',stroke:'#567650','stroke-width':2});line(s,200,50,200,200,{'stroke-dasharray':'5 4'});line(s,200,200,130,260,{'stroke-dasharray':'5 4'});line(s,200,200,440,200,{'stroke-dasharray':'5 4'});label(s,235,285,v.a+' ซม.');label(s,40,190,v.c+' ซม.');label(s,430,250,v.b+' ซม.');
+  shape(s,'path',{d:'M130 110L200 50H440V200L370 260H130ZM130 110H370V260M370 110L440 50',fill:'#ece6f3',stroke:'#634f77','stroke-width':2});line(s,200,50,200,200,{'stroke-dasharray':'5 4'});line(s,200,200,130,260,{'stroke-dasharray':'5 4'});line(s,200,200,440,200,{'stroke-dasharray':'5 4'});label(s,235,285,v.a+' ซม.');label(s,40,190,v.c+' ซม.');label(s,430,250,v.b+' ซม.');
  }else if(v.type==='prism'){
   const n=v.sides,front=Array.from({length:n},(_,i)=>[210+80*Math.cos(2*Math.PI*i/n-Math.PI/2),180+80*Math.sin(2*Math.PI*i/n-Math.PI/2)]),back=front.map(([x,y])=>[x+150,y-60]);
-  shape(s,'polygon',{points:back.map(p=>p.join(',')).join(' '),fill:'#f4f6ed',stroke:'#8c9e7d','stroke-dasharray':'4 4'});for(let i=0;i<n;i++)line(s,...front[i],...back[i]);shape(s,'polygon',{points:front.map(p=>p.join(',')).join(' '),fill:'#e2ecd2',stroke:'#567650','stroke-width':2});label(s,170,290,'ฐาน '+n+' เหลี่ยม');
+  shape(s,'polygon',{points:back.map(p=>p.join(',')).join(' '),fill:'#f2edf6',stroke:'#8d77a4','stroke-dasharray':'4 4'});for(let i=0;i<n;i++)line(s,...front[i],...back[i]);shape(s,'polygon',{points:front.map(p=>p.join(',')).join(' '),fill:'#dfd2ec',stroke:'#634f77','stroke-width':2});label(s,170,290,'ฐาน '+n+' เหลี่ยม');
  }else return null;
  return s;
 }
@@ -64,10 +64,10 @@ function chart(v,series,title){
  const W=600,H=340,left=65,right=30,top=30,bottom=65,gw=W-left-right,gh=H-top-bottom,base=v.base||0,max=v.max||60,n=v.labels.length;
  const s=svgRoot(title+': '+v.labels.map((label,i)=>label+' '+series.map(row=>row[i]).join('/')).join(', '),W,H);
  const y=value=>H-bottom-(value-base)/(max-base)*gh,x=i=>left+(i+.5)*gw/n;
- for(let value=base;value<=max;value+=v.step){line(s,left,y(value),W-right,y(value),{stroke:'#e0e7d6','stroke-width':1});label(s,left-10,y(value)+5,value,{'text-anchor':'end'});}
+ for(let value=base;value<=max;value+=v.step){line(s,left,y(value),W-right,y(value),{stroke:'#ded6e7','stroke-width':1});label(s,left-10,y(value)+5,value,{'text-anchor':'end'});}
  line(s,left,top,left,H-bottom);line(s,left,H-bottom,W-right,H-bottom);label(s,10,20,v.unit||'จำนวน');
- const colors=['#789b67','#d39b69'];
- if(base){label(s,left-12,H-bottom+22,'0',{'text-anchor':'end'});shape(s,'path',{d:`M${left-6} ${H-bottom-5}l12 -5l-12 -5l12 -5`,fill:'none',stroke:'#486b55','stroke-width':2});label(s,left+12,H-bottom+40,'ย่นระยะ 0–'+base);}
+ const colors=['#81679b','#d39b69'];
+ if(base){label(s,left-12,H-bottom+22,'0',{'text-anchor':'end'});shape(s,'path',{d:`M${left-6} ${H-bottom-5}l12 -5l-12 -5l12 -5`,fill:'none',stroke:'#59486b','stroke-width':2});label(s,left+12,H-bottom+40,'ย่นระยะ 0–'+base);}
  v.labels.forEach((text,i)=>label(s,x(i),H-bottom+24,text,{'text-anchor':'middle','font-size':12}));
  series.forEach((row,j)=>{
   if(v.chart==='line'){const pts=row.map((value,i)=>[x(i),y(value)]);shape(s,'polyline',{points:pts.map(p=>p.join(',')).join(' '),fill:'none',stroke:colors[j],'stroke-width':3});pts.forEach(([cx,cy])=>shape(s,'circle',{cx,cy,r:5,fill:colors[j]}));}
@@ -89,10 +89,10 @@ function renderConstruction(p,box,input,onChange){
  const inputs=labels.map((text,i)=>{const l=node('label',text),f=node('input');f.type='number';f.min='0';f.max=String(v.grid);f.step='1';f.setAttribute('aria-label',text);f.oninput=()=>{selected[i]=f.value===''?undefined:Number(f.value);render();input.value=JSON.stringify(Array.from({length:count},(_,j)=>selected[j]??null));onChange();};l.append(f);fields.append(l);return f;});
  function render(){
   const s=svgRoot('ตารางสร้างรูป 1 ช่อง = 1 หน่วย',440,440),pos=([x,y])=>[40+x*36,400-y*36];s.setAttribute('role','group');
-  for(let i=0;i<=v.grid;i++){line(s,40+i*36,40,40+i*36,400,{stroke:'#e2e8d9','stroke-width':1});line(s,40,400-i*36,400,400-i*36,{stroke:'#e2e8d9','stroke-width':1});label(s,40+i*36,422,i,{'text-anchor':'middle','font-size':11});label(s,25,404-i*36,i,{'font-size':11});}
-  const point=(q,text,color='#4d6b56')=>{const [cx,cy]=pos(q);shape(s,'circle',{cx,cy,r:5,fill:color});label(s,cx+7,cy-8,text);};
+  for(let i=0;i<=v.grid;i++){line(s,40+i*36,40,40+i*36,400,{stroke:'#e0d9e8','stroke-width':1});line(s,40,400-i*36,400,400-i*36,{stroke:'#e0d9e8','stroke-width':1});label(s,40+i*36,422,i,{'text-anchor':'middle','font-size':11});label(s,25,404-i*36,i,{'font-size':11});}
+  const point=(q,text,color='#5c4a6e')=>{const [cx,cy]=pos(q);shape(s,'circle',{cx,cy,r:5,fill:color});label(s,cx+7,cy-8,text);};
   line(s,...pos(v.a),...pos(v.b));point(v.a,'A');point(v.b,'B');if(v.p)point(v.p,'P');
-  if(v.mode==='quad'&&selected.filter(Number.isFinite).length===4){const points=[v.a,v.b,selected.slice(0,2),selected.slice(2,4)];shape(s,'polygon',{points:points.map(q=>pos(q).join(',')).join(' '),fill:'#dce8c966',stroke:'#c28c56','stroke-width':2});point(points[2],'C');point(points[3],'D');}
+  if(v.mode==='quad'&&selected.filter(Number.isFinite).length===4){const points=[v.a,v.b,selected.slice(0,2),selected.slice(2,4)];shape(s,'polygon',{points:points.map(q=>pos(q).join(',')).join(' '),fill:'#d8c9e866',stroke:'#c28c56','stroke-width':2});point(points[2],'C');point(points[3],'D');}
   else if(v.p&&Array.from({length:2},(_,i)=>selected[i]).every(Number.isFinite)){line(s,...pos(v.p),...pos(selected),{stroke:'#c28c56'});point(selected,'Q','#c28c56');}
   for(let x=0;x<=v.grid;x++)for(let y=0;y<=v.grid;y++){
    const [cx,cy]=pos([x,y]);const hit=shape(s,'circle',{cx,cy,r:11,fill:'transparent',role:'button',tabindex:0,'aria-label':`เลือกจุด ${x}, ${y}`,'data-x':x,'data-y':y});
